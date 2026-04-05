@@ -269,11 +269,14 @@ Test target `DockLockTests` added — 39 tests, 0 failures.
 
 Not unit-testable (requires real device/hardware): BT scanning, `CGSession` lock, Touch ID, `NSRunningApplication.hide()`
 
-### ⬜ Week 8-10: Release
+### 🔄 Week 8-10: Release
 
 - [ ] Code signing + notarization
 - [ ] `.dmg` packaging
-- [ ] GitHub repo cleanup, README, demo GIF
+- [x] GitHub repo init (`git init`, `main` branch, `.gitignore`)
+- [x] README.md — features, install, architecture, privacy
+- [x] MIT License
+- [ ] Demo GIF (Screen Recording + Gifski)
 - [ ] CI with GitHub Actions
 - [ ] Homebrew Cask formula
 - [ ] v0.1.0 Public Release
@@ -288,7 +291,7 @@ Week 3-4:  Panic Mode — hide/unhide + Touch ID release    ✅
 Week 5-6:  Proximity Lock — Bluetooth scan + RSSI monitoring    ✅
 Week 7:    Hysteresis tuning, edge case fixes, UX polish         ✅
 Week 8:    Code signing, notarization, .dmg packaging
-Week 9:    GitHub repo cleanup, README, demo GIF
+Week 9:    GitHub repo cleanup, README ✅ demo GIF
 Week 10:   v0.1.0 Public Release
 ```
 

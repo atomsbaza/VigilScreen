@@ -1,0 +1,17 @@
+//
+//  DockLockApp.swift
+//  DockLock
+//
+//  Created by Pisit Koolplukpol on 5/4/2569 BE.
+//
+
+import SwiftUI
+
+@main
+struct DockLockApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}

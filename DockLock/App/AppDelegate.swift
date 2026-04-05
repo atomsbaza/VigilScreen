@@ -1,0 +1,66 @@
+import AppKit
+import SwiftUI
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    static private(set) var shared: AppDelegate?
+
+    private var menuBarManager: MenuBarManager?
+    private var settingsWindow: NSWindow?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        AppDelegate.shared = self
+        NSApp.setActivationPolicy(.accessory)
+
+        menuBarManager = MenuBarManager()
+        menuBarManager?.setup()
+
+        if !PermissionManager.shared.hasAccessibilityPermission {
+            PermissionManager.shared.requestAccessibilityIfNeeded()
+        }
+
+        _ = PanicModeManager.shared
+        _ = LockTrigger.shared
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    // MARK: - Settings window
+
+    func openSettings() {
+        // Close the popover first — it holds the key window and will block
+        // the settings window from becoming visible if still open.
+        menuBarManager?.closePopover()
+
+        // Wait one run loop after the popover dismisses, then show the window.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.showSettingsWindow()
+        }
+    }
+
+    private func showSettingsWindow() {
+        if let window = settingsWindow, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 440),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "DockLock Settings"
+        window.contentViewController = NSHostingController(rootView: SettingsView())
+        window.center()
+        window.setFrameAutosaveName("DockLockSettings")
+        window.isReleasedWhenClosed = false
+        settingsWindow = window
+
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}

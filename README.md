@@ -1,45 +1,62 @@
 # DockLock
 
-A macOS Menu Bar app that protects sensitive information on your screen — combining **Bluetooth Proximity Detection** and **Panic Mode** for instant privacy protection. Local-first, no data leaves your device.
+🛡️ **Auto-lock your Mac on proximity + panic-hide sensitive apps with one hotkey**
 
-![Platform](https://img.shields.io/badge/platform-macOS%2015%2B-blue)
-![Swift](https://img.shields.io/badge/swift-6.0-orange)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-0.1.0-informational)
+A privacy-first macOS security app for developers, consultants, and anyone handling sensitive data (source code, credentials, API keys, documents).
+
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Swift 6.0+](https://img.shields.io/badge/Swift-6.0%2B-orange.svg)](#tech-stack)
+[![macOS 15+](https://img.shields.io/badge/macOS-15%2B-green.svg)](#requirements)
 
 ---
 
 ## Features
 
-### Panic Mode
-Hide all sensitive apps instantly with a single keystroke (`⌘⇧L`).
+### 🔒 **Proximity Lock**
+Auto-lock your Mac when you step away from your desk.
+- Detects when your iPhone or Apple Watch goes out of Bluetooth range
+- Smart hysteresis logic prevents false triggers
+- Customizable lock delay (5-30 seconds)
+- Works with Bluetooth or WiFi signal strength
 
-- One-shortcut hide for apps on your blocklist (Terminal, Xcode, Safari, Slack, Notion, and more)
-- Touch ID / password required to restore apps
-- Handles full-screen apps automatically
-- Customizable app blocklist with import/export
+### 🚨 **Panic Mode**
+Hide sensitive apps instantly with one keystroke.
+- Single hotkey (default: `⌘+Shift+L`) hides Terminal, IDE, browsers, Slack, etc.
+- Customizable blocklist — choose which apps to protect
+- Release with Touch ID for added security
+- Hides even full-screen applications
 
-### Proximity Lock
-Automatically locks your screen when you walk away.
-
-- Tracks RSSI of your paired iPhone via Bluetooth
-- Hysteresis logic prevents false positives from brief signal drops
-- Configurable lock delay (5–30 seconds) and signal threshold (-60 to -90 dBm)
-- Live RSSI display and countdown timer in the menu bar
+### 🔐 **Security First**
+- **Local-first**: All processing happens on your Mac. No cloud sync, no network calls
+- **Open source**: Community audits the code
+- **Zero dependencies**: Pure Apple frameworks only
+- **Privacy-focused**: We don't collect telemetry or analytics
 
 ---
 
-## Requirements
+## Screenshots & Demo
 
-- macOS 15 Sequoia or later
-- Xcode 16+ (to build from source)
-- iPhone or Apple Watch for Proximity Lock
+> 🎬 Demo GIF coming soon (Screen Recording + Gifski)
 
 ---
 
 ## Installation
 
-### Build from Source
+### Option 1: Download .dmg (Recommended)
+
+1. Download the latest release from [GitHub Releases](https://github.com/atomsbaza/DockLock/releases)
+2. Open `DockLock.dmg`
+3. Drag **DockLock.app** to Applications
+4. Launch from Applications folder
+5. Grant permissions (Bluetooth, Accessibility) when prompted
+
+### Option 2: Homebrew (Coming Soon)
+
+```bash
+brew install --cask docklock
+```
+
+### Option 3: Build from Source
 
 ```bash
 git clone https://github.com/atomsbaza/DockLock.git
@@ -47,19 +64,35 @@ cd DockLock
 open DockLock.xcodeproj
 ```
 
-Build and run in Xcode (`⌘R`).
+**Requirements:**
+- Xcode 16+
+- macOS 15 Sequoia or later
+- Swift 6.0+
 
-### Permissions
+---
 
-DockLock will request the following permissions when needed:
+## Quick Start
 
-| Permission | Used for |
-|---|---|
-| Bluetooth | Proximity Lock — detect your iPhone's RSSI |
-| Accessibility | Global keyboard shortcut (`⌘⇧L`) |
-| Touch ID / Face ID | Unlock Panic Mode |
+### 1. **Enable Proximity Lock**
 
-No Camera, Microphone, Location, or Network access is requested or used.
+1. Open DockLock → Settings
+2. Go to **Proximity Lock** tab
+3. Toggle **Enable**
+4. Click **Scan for Devices** and select your iPhone or Apple Watch
+5. Tune signal threshold if needed (move farther away to adjust)
+
+### 2. **Set Up Panic Mode**
+
+1. Go to **Panic Mode** tab
+2. Check apps you want to hide (default: Terminal, Xcode, VS Code, Safari, Chrome, Slack, Notion)
+3. Add more apps by clicking **+** and selecting from running apps
+4. Customize keyboard shortcut (default: `⌘+Shift+L`)
+5. Toggle **Require Touch ID to release** for extra security
+
+### 3. **Test It Out**
+
+- **Proximity Lock**: Walk away from your desk with Bluetooth enabled → Mac locks
+- **Panic Mode**: Press `⌘+Shift+L` → selected apps disappear instantly
 
 ---
 
@@ -67,32 +100,149 @@ No Camera, Microphone, Location, or Network access is requested or used.
 
 ```
 DockLock/
-├── App/               # @main entry, AppDelegate
-├── MenuBar/           # NSStatusItem, popover UI
+├── App/
+│   ├── DockLockApp.swift          # @main entry point
+│   └── AppDelegate.swift          # NSApplicationDelegate
+│
+├── MenuBar/
+│   ├── MenuBarManager.swift       # NSStatusItem + popover
+│   └── MenuBarView.swift          # SwiftUI popover UI
+│
 ├── Features/
-│   ├── PanicMode/     # Hide/unhide apps, blocklist, Touch ID release
-│   └── ProximityLock/ # Bluetooth RSSI monitoring, lock trigger
-├── Core/              # LockEngine, SettingsStore, PermissionManager
-├── Settings/          # Settings window UI
-└── Resources/         # Assets, entitlements
+│   ├── PanicMode/
+│   │   ├── PanicModeManager.swift # Hide/unhide app logic
+│   │   ├── AppBlocklist.swift     # Managed list of apps to hide
+│   │   └── PanicModeView.swift    # Settings UI
+│   │
+│   └── ProximityLock/
+│       ├── BluetoothMonitor.swift # CoreBluetooth RSSI scanning
+│       ├── LockTrigger.swift      # Hysteresis + lock action
+│       ├── DiscoveredDevice.swift # Device model + signal strength
+│       └── ProximityView.swift    # Settings UI
+│
+├── Core/
+│   ├── LockEngine.swift           # Sends lock screen command
+│   ├── SettingsStore.swift        # UserDefaults wrapper
+│   └── PermissionManager.swift    # Requests OS permissions
+│
+├── Settings/
+│   └── SettingsView.swift         # Main settings window
+│
+└── Resources/
+    └── DockLock.entitlements      # App entitlements
 ```
-
-Pure Apple frameworks — no third-party dependencies.
 
 ---
 
-## Privacy
+## Tech Stack
 
-DockLock is **fully local**. No analytics, no telemetry, no network requests. All settings are stored in `UserDefaults` and Keychain on your Mac.
+| Component | Choice | Why |
+|---|---|---|
+| **Language** | Swift 6.0+ | Full concurrency support, modern syntax |
+| **UI** | SwiftUI 6 + AppKit | Native macOS feel, menu bar integration |
+| **Frameworks** | CoreBluetooth, LocalAuthentication, CoreGraphics, Security | Pure Apple APIs, zero external dependencies |
+| **Min Target** | macOS 15 Sequoia | Latest stable APIs |
+| **Build System** | Xcode 16+ | Native Swift 6 strict concurrency support |
+
+---
+
+## Permissions
+
+DockLock requests only the permissions it needs:
+
+| Permission | Why | Prompt |
+|---|---|---|
+| **Bluetooth** | To scan for nearby iPhone/Watch | When enabling Proximity Lock |
+| **Accessibility** | To register global keyboard shortcut | When customizing Panic Mode hotkey |
+| **Face ID/Touch ID** | To authenticate panic release | When enabling Panic Mode |
+
+**What we DON'T ask for:** Camera, Microphone, Location, Network
+
+---
+
+## FAQ
+
+**Q: Does DockLock work with multiple Macs?**
+A: Currently no — MVP focuses on single-Mac setup. iCloud Sync is planned for Phase 2.
+
+**Q: What if my iPhone is out of battery?**
+A: Proximity Lock won't trigger. Panic Mode still works independently.
+
+**Q: Can I hide custom apps?**
+A: Yes! Click **+** in Panic Mode settings and select from running apps.
+
+**Q: Is my data safe?**
+A: Completely safe. All processing is local. No cloud, no analytics, no telemetry. It's open source — audit the code yourself.
+
+**Q: Does it work on Apple Silicon?**
+A: Yes. Optimized for M1/M2/M3 Macs.
+
+---
+
+## Privacy & Security
+
+### No Cloud Storage
+- Settings stay on your Mac only
+- No accounts, no logins
+- Bluetooth pairing info in system Keychain (encrypted)
+
+### No Telemetry
+- No usage tracking, crash reporting, or analytics
+
+### Open Source
+- Full source code on GitHub
+- MIT License — fork and audit freely
+
+### Responsible Disclosure
+Found a security issue? Report privately to [atomsbaza2@gmail.com](mailto:atomsbaza2@gmail.com). See [SECURITY.md](SECURITY.md).
 
 ---
 
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you'd like to change.
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Ways to Help
+- 🐛 Report bugs
+- 💡 Suggest features
+- 📝 Improve docs
+- 🔍 Audit security
+- 🌍 Translate
+
+---
+
+## Roadmap
+
+### ✅ v0.1.0 (MVP)
+- Panic Mode
+- Proximity Lock (Bluetooth)
+- Local settings
+
+### 🚀 Phase 2
+- Menubar stats
+- Lock history log
+- Intruder Capture
+
+### 💡 Future
+- iCloud Sync
+- Custom app modes
+- Third-party integrations
 
 ---
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2026 atomsbaza
+MIT License — see [LICENSE](LICENSE).
+
+---
+
+## Support
+
+- 📖 [Documentation](CONTRIBUTING.md)
+- 🐛 [Report Bug](https://github.com/atomsbaza/DockLock/issues/new)
+- 💡 [Request Feature](https://github.com/atomsbaza/DockLock/discussions)
+- 🔒 [Security Issue](mailto:atomsbaza2@gmail.com)
+
+---
+
+**Made with ❤️ for developers who care about privacy**

@@ -1,6 +1,6 @@
 # DockLock — MVP Plan
 
-> macOS security app สำหรับคนทำงานสาย FinTech
+> macOS security app สำหรับคนที่ทำงานกับข้อมูลสำคัญ
 > Open Source | SwiftUI | Privacy-first
 > **GitHub:** https://github.com/atomsbaza/DockLock
 
@@ -11,6 +11,8 @@
 DockLock คือ macOS Menu Bar app ที่ช่วยปกป้องข้อมูลสำคัญบนหน้าจอ
 ด้วยการผสม Bluetooth Proximity Detection และ Panic Mode เข้าด้วยกัน
 เน้น Local-first — ไม่มีข้อมูลออกไปหา Server ภายนอกเลย
+
+**สำหรับใคร:** Developers, security professionals, consultants, anyone handling sensitive data
 
 **Distribution:** Open Source (GitHub) + Direct Download (.dmg)
 ไม่ผ่าน App Store เพื่อใช้ entitlements เต็มรูปแบบ
@@ -335,7 +337,7 @@ github.com/atomsbaza/DockLock/
 - [ ] Homebrew Cask formula (`brew install --cask docklock`)
 - [ ] Post บน r/macapps, Hacker News (Show HN)
 - [ ] Product Hunt launch
-- [ ] FinTech / macOS dev community: Twitter/X, indie.hackers
+- [ ] macOS dev / security community: Twitter/X, indie.hackers
 
 ---
 

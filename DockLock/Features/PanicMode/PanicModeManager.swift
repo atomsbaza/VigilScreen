@@ -8,10 +8,32 @@ class PanicModeManager: ObservableObject {
     @Published private(set) var isActive = false
 
     private var hiddenApps: [NSRunningApplication] = []
+    private var isAuthenticating = false
+    private var panicCancellables = Set<AnyCancellable>()
     private var shortcutMonitor: Any?
     private let blocklist = AppBlocklist.shared
     private let settings = SettingsStore.shared
     private var cancellables = Set<AnyCancellable>()
+
+    // Black overlay shown over full-screen panic apps (where hide() silently fails)
+    // when the user switches to their Space.
+    private lazy var blurOverlayWindow: NSWindow = {
+        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let win = NSWindow(
+            contentRect: screen.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        win.backgroundColor = .black
+        win.isOpaque = true
+        win.level = .screenSaver
+        // .fullScreenAuxiliary lets the window appear on full-screen app Spaces
+        win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        win.ignoresMouseEvents = true
+        win.animationBehavior = .none
+        return win
+    }()
 
     private init() {
         settings.$panicShortcutEnabled
@@ -44,10 +66,7 @@ class PanicModeManager: ObservableObject {
 
         NSWorkspace.shared.notificationCenter
             .publisher(for: NSWorkspace.screensDidWakeNotification)
-            .sink { [weak self] _ in
-                // Apps are already hidden by the lock screen; reset tracked state
-                self?.clearWithoutUnhiding()
-            }
+            .sink { [weak self] _ in self?.clearWithoutUnhiding() }
             .store(in: &cancellables)
     }
 
@@ -58,65 +77,90 @@ class PanicModeManager: ObservableObject {
             guard let id = $0.bundleIdentifier else { return false }
             return blocklist.bundleIDs.contains(id) && $0.activationPolicy == .regular
         }
-        hiddenApps.forEach { exitFullScreenIfNeeded($0) }
+        // Attempt to hide all blocklisted apps. For windowed apps this works immediately.
+        // For full-screen apps hide() silently fails — the overlay catches those below.
+        hiddenApps.forEach { $0.hide() }
         isActive = true
+        startMonitoringSpaceSwitches()
     }
 
-    // MARK: - Full screen handling
+    // MARK: - Space Switch Monitoring
 
-    /// Exits full screen via Accessibility API then hides the app.
-    /// Regular (non-full-screen) apps are hidden immediately.
-    private func exitFullScreenIfNeeded(_ app: NSRunningApplication) {
-        guard AXIsProcessTrusted() else {
-            app.hide()
-            return
-        }
+    private func startMonitoringSpaceSwitches() {
+        let center = NSWorkspace.shared.notificationCenter
 
-        let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        // Set a timeout so AX calls don't hang if the app is unresponsive
-        AXUIElementSetMessagingTimeout(axApp, 2.0)
+        // didActivateApplicationNotification carries the newly active app in userInfo —
+        // more reliable than reading frontmostApplication from activeSpaceDidChangeNotification,
+        // which fires before the frontmost app property updates.
+        center.publisher(for: NSWorkspace.didActivateApplicationNotification)
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
+            .sink { [weak self] app in self?.updateBlurOverlay(for: app) }
+            .store(in: &panicCancellables)
 
-        var windowsRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &windowsRef) == .success,
-              let cfArray = windowsRef,
-              CFGetTypeID(cfArray) == CFArrayGetTypeID() else {
-            app.hide()
-            return
-        }
-
-        let windowsArray = cfArray as! CFArray
-        let count = CFArrayGetCount(windowsArray)
-
-        var wasFullScreen = false
-        for i in 0 ..< count {
-            let rawWindow = CFArrayGetValueAtIndex(windowsArray, i)
-            let window = unsafeBitCast(rawWindow, to: AXUIElement.self)
-
-            var valueRef: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &valueRef) == .success,
-                  let value = valueRef,
-                  CFGetTypeID(value) == CFBooleanGetTypeID(),
-                  CFBooleanGetValue(unsafeBitCast(value, to: CFBoolean.self)) else { continue }
-
-            AXUIElementSetAttributeValue(window, "AXFullScreen" as CFString, kCFBooleanFalse)
-            wasFullScreen = true
-        }
-
-        if wasFullScreen {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                guard !app.isTerminated else { return }
-                app.hide()
+        // Fallback: activeSpaceDidChangeNotification with a short delay so that
+        // frontmostApplication has time to settle after the Space transition.
+        center.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                    guard let self, self.isActive else { return }
+                    if let front = NSWorkspace.shared.frontmostApplication {
+                        self.updateBlurOverlay(for: front)
+                    }
+                }
             }
+            .store(in: &panicCancellables)
+    }
+
+    private func isBlocklisted(_ app: NSRunningApplication) -> Bool {
+        app.bundleIdentifier.map { blocklist.bundleIDs.contains($0) } ?? false
+    }
+
+    private func updateBlurOverlay(for app: NSRunningApplication) {
+        guard isActive else {
+            blurOverlayWindow.orderOut(nil)
+            return
+        }
+        // Keep overlay visible while Touch ID / password prompt is showing.
+        if isAuthenticating { return }
+        // Show overlay whenever a blocklisted app is frontmost.
+        // If hide() succeeded (windowed app), it can never become frontmost, so this
+        // only fires for full-screen apps where hide() silently failed.
+        if isBlocklisted(app) {
+            if let screen = NSScreen.main {
+                blurOverlayWindow.setFrame(screen.frame, display: false)
+            }
+            blurOverlayWindow.orderFrontRegardless()
         } else {
-            app.hide()
+            blurOverlayWindow.orderOut(nil)
         }
     }
+
+    // MARK: - Release
 
     func releasePanic() {
         guard isActive else { return }
         if settings.panicRequiresTouchID {
+            // Show overlay immediately so blocklisted apps stay hidden
+            // behind the Touch ID dialog while auth is in progress.
+            isAuthenticating = true
+            if let screen = NSScreen.main {
+                blurOverlayWindow.setFrame(screen.frame, display: false)
+            }
+            blurOverlayWindow.orderFrontRegardless()
+
             authenticateWithBiometrics { [weak self] success in
-                if success { self?.unhideAll() }
+                guard let self else { return }
+                self.isAuthenticating = false
+                if success {
+                    self.unhideAll()
+                } else {
+                    // Auth cancelled/failed — re-evaluate based on current frontmost app
+                    if let front = NSWorkspace.shared.frontmostApplication {
+                        self.updateBlurOverlay(for: front)
+                    }
+                }
             }
         } else {
             unhideAll()
@@ -126,12 +170,18 @@ class PanicModeManager: ObservableObject {
     private func unhideAll() {
         hiddenApps.forEach { $0.unhide() }
         hiddenApps = []
+        isAuthenticating = false
+        panicCancellables.removeAll()
+        blurOverlayWindow.orderOut(nil)
         isActive = false
     }
 
     /// Resets panic state without unhiding (used when screen locks — apps are hidden by OS anyway).
     private func clearWithoutUnhiding() {
         hiddenApps = []
+        isAuthenticating = false
+        panicCancellables.removeAll()
+        blurOverlayWindow.orderOut(nil)
         isActive = false
     }
 

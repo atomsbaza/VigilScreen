@@ -7,57 +7,80 @@ struct MenuBarView: View {
     @ObservedObject private var settings = SettingsStore.shared
 
     var body: some View {
-        VStack(spacing: 10) {
-            // Header
-            HStack {
-                Image(systemName: "lock.shield.fill")
-                    .foregroundColor(panicManager.isActive ? .red : .accentColor)
-                Text("DockLock")
-                    .font(.headline)
-                Spacer()
-            }
-
+        VStack(spacing: 0) {
+            header
             Divider()
-
-            // Panic Mode button
-            Button {
-                if panicManager.isActive { panicManager.releasePanic() } else { panicManager.triggerPanic() }
-            } label: {
-                Label(
-                    panicManager.isActive ? "Release Panic Mode" : "Panic Mode",
-                    systemImage: panicManager.isActive ? "eye" : "eye.slash"
-                )
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(panicManager.isActive ? .green : .red)
-
-            // Proximity Lock status
+            panicButton
             if settings.proximityLockEnabled {
                 Divider()
-                ProximityStatusRow(
-                    monitor: monitor,
-                    trigger: trigger,
-                    threshold: Int(settings.proximityRSSIThreshold)
-                )
+                proximityRow
             }
-
             Divider()
-
-            // Footer
-            HStack {
-                Button {
-                    AppDelegate.shared?.openSettings()
-                } label: {
-                    Label("Settings", systemImage: "gear")
-                }
-                Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }
-            }
-            .font(.callout)
+            footer
         }
-        .padding()
-        .frame(width: 280)
+        .frame(width: 256)
+    }
+
+    // MARK: - Sections
+
+    private var header: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "lock.shield.fill")
+                .foregroundColor(panicManager.isActive ? .red : .accentColor)
+            Text("DockLock")
+                .font(.headline)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+    }
+
+    private var panicButton: some View {
+        let active = panicManager.isActive
+        return Button {
+            active ? panicManager.releasePanic() : panicManager.triggerPanic()
+        } label: {
+            Label(
+                active ? "Release Panic Mode" : "Panic Mode",
+                systemImage: active ? "eye" : "eye.slash"
+            )
+            .fontWeight(.medium)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background((active ? Color.green : Color.red).opacity(0.15))
+            .foregroundColor(active ? .green : .red)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
+    private var proximityRow: some View {
+        ProximityStatusRow(
+            monitor: monitor,
+            trigger: trigger,
+            threshold: Int(settings.proximityRSSIThreshold)
+        )
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    private var footer: some View {
+        HStack {
+            Button {
+                AppDelegate.shared?.openSettings()
+            } label: {
+                Label("Settings", systemImage: "gear")
+            }
+            Spacer()
+            Button("Quit") { NSApplication.shared.terminate(nil) }
+        }
+        .buttonStyle(.plain)
+        .font(.callout)
+        .foregroundColor(.secondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
 }
 

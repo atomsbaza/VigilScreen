@@ -42,6 +42,9 @@ fastlane/test_output
 # Claude Code
 .claude/
 
+# Local notes
+REDDIT_POST.md
+
 # Secrets
 *.p12
 *.mobileprovision

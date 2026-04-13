@@ -7,6 +7,7 @@ A privacy-first macOS security app for developers, consultants, and anyone handl
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6.0+](https://img.shields.io/badge/Swift-6.0%2B-orange.svg)](#tech-stack)
 [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-green.svg)](#requirements)
+[![Liquid Glass](https://img.shields.io/badge/macOS%2026-Liquid%20Glass-purple.svg)](#liquid-glass)
 
 ---
 
@@ -26,11 +27,24 @@ Hide sensitive apps instantly with one keystroke.
 - Release with Touch ID for added security
 - Hides even full-screen applications
 
+### 🎉 **First-Run Onboarding**
+Get set up in seconds with a guided welcome checklist.
+- Live status for Accessibility, Bluetooth pairing, and app blocklist
+- Opens directly from the menu bar popover
+- Dismisses automatically once you're ready
+
+### ✨ **Liquid Glass (macOS 26)**
+Native macOS 26 visual design when available.
+- Panic button uses `.glassEffect` with live tint (green/red)
+- Onboarding footer uses `.buttonStyle(.glassProminent)`
+- Graceful fallback to standard SwiftUI on macOS 15–25
+
 ### 🔐 **Security First**
 - **Local-first**: All processing happens on your Mac. No cloud sync, no network calls
 - **Open source**: Community audits the code
 - **Zero dependencies**: Pure Apple frameworks only
 - **Privacy-focused**: We don't collect telemetry or analytics
+- **PrivacyInfo.xcprivacy**: Declares all accessed APIs (Bluetooth, Keychain) for notarization compliance
 
 ---
 
@@ -102,15 +116,16 @@ open DockLock.xcodeproj
 DockLock/
 ├── App/
 │   ├── DockLockApp.swift          # @main entry point
-│   └── AppDelegate.swift          # NSApplicationDelegate
+│   └── AppDelegate.swift          # NSApplicationDelegate + NSWindowDelegate
 │
 ├── MenuBar/
-│   ├── MenuBarManager.swift       # NSStatusItem + popover
-│   └── MenuBarView.swift          # SwiftUI popover UI
+│   ├── MenuBarManager.swift       # NSStatusItem + dynamic-height popover
+│   ├── MenuBarView.swift          # SwiftUI popover UI (welcome gate)
+│   └── WelcomeView.swift          # First-run onboarding checklist
 │
 ├── Features/
 │   ├── PanicMode/
-│   │   ├── PanicModeManager.swift # Hide/unhide app logic
+│   │   ├── PanicModeManager.swift # Hide/unhide app logic (@MainActor)
 │   │   ├── AppBlocklist.swift     # Managed list of apps to hide
 │   │   └── PanicModeView.swift    # Settings UI
 │   │
@@ -123,14 +138,28 @@ DockLock/
 ├── Core/
 │   ├── LockEngine.swift           # Sends lock screen command
 │   ├── SettingsStore.swift        # UserDefaults wrapper
-│   └── PermissionManager.swift    # Requests OS permissions
+│   └── PermissionManager.swift    # Requests OS permissions (@MainActor)
 │
 ├── Settings/
 │   └── SettingsView.swift         # Main settings window
 │
 └── Resources/
-    └── DockLock.entitlements      # App entitlements
+    ├── DockLock.entitlements      # App entitlements
+    └── PrivacyInfo.xcprivacy      # Apple privacy manifest (notarization)
 ```
+
+---
+
+## Liquid Glass
+
+DockLock uses the macOS 26 Liquid Glass design language when available, with a clean fallback for macOS 15–25:
+
+| Element | macOS 26 | macOS 15–25 |
+|---|---|---|
+| Panic button | `.glassEffect(.regular.tint(...).interactive())` | Colored `.background` + rounded clip |
+| Onboarding CTA | `.buttonStyle(.glassProminent)` | `.buttonStyle(.borderedProminent)` |
+
+All glass effects are gated with `#available(macOS 26, *)` — the app compiles and runs identically on both targets.
 
 ---
 
@@ -138,10 +167,11 @@ DockLock/
 
 | Component | Choice | Why |
 |---|---|---|
-| **Language** | Swift 6.0+ | Full concurrency support, modern syntax |
+| **Language** | Swift 6.0+ | Strict concurrency enforced across the codebase |
 | **UI** | SwiftUI 6 + AppKit | Native macOS feel, menu bar integration |
 | **Frameworks** | CoreBluetooth, LocalAuthentication, CoreGraphics, Security | Pure Apple APIs, zero external dependencies |
-| **Min Target** | macOS 15 Sequoia | Latest stable APIs |
+| **Liquid Glass** | macOS 26+ `.glassEffect` | Adaptive — falls back gracefully on macOS 15–25 |
+| **Min Target** | macOS 15 Sequoia | Broad compatibility, Ships on all modern Macs |
 | **Build System** | Xcode 16+ | Native Swift 6 strict concurrency support |
 
 ---
@@ -193,6 +223,11 @@ A: Yes. Optimized for M1/M2/M3 Macs.
 - Full source code on GitHub
 - MIT License — fork and audit freely
 
+### Apple Privacy Manifest
+- `PrivacyInfo.xcprivacy` declares all accessed APIs (Bluetooth, Keychain)
+- Required for macOS 15+ notarization
+- Confirms: `NSPrivacyTracking: false`, zero collected data types
+
 ### Responsible Disclosure
 Found a security issue? Report privately to [atomsbaza2@gmail.com](mailto:atomsbaza2@gmail.com). See [SECURITY.md](SECURITY.md).
 
@@ -214,9 +249,13 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Roadmap
 
 ### ✅ v0.1.0 (MVP)
-- Panic Mode
+- Panic Mode with full-screen blur overlay
 - Proximity Lock (Bluetooth)
 - Local settings
+- First-run onboarding
+- Liquid Glass UI (macOS 26)
+- Swift 6 strict concurrency
+- Apple Privacy Manifest (PrivacyInfo.xcprivacy)
 
 ### 🚀 Phase 2
 - Menubar stats

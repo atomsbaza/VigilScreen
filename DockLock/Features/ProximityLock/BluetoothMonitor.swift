@@ -80,7 +80,8 @@ class BluetoothMonitor: NSObject, ObservableObject {
         KeychainHelper.save(key: "pairedUUID", value: device.uuid.uuidString)
         KeychainHelper.save(key: "pairedName", value: device.name)
         startPresenceTimer()
-        // Switch to monitoring scan without clearing device list
+        // Stop discovery scan before switching to monitoring to avoid overlapping scans.
+        stopDiscoveryScan()
         startMonitoringScan()
     }
 
@@ -204,7 +205,10 @@ enum KeychainHelper {
             kSecValueData as String:   data,
         ]
         SecItemDelete(query as CFDictionary)
-        SecItemAdd(query as CFDictionary, nil)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status != errSecSuccess {
+            print("[DockLock] Keychain save failed for key '\(key)': OSStatus \(status)")
+        }
     }
 
     static func load(key: String) -> String? {
@@ -225,6 +229,9 @@ enum KeychainHelper {
             kSecClass as String:       kSecClassGenericPassword,
             kSecAttrAccount as String: key,
         ]
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            print("[DockLock] Keychain delete failed for key '\(key)': OSStatus \(status)")
+        }
     }
 }

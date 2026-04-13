@@ -1,12 +1,21 @@
 import SwiftUI
 
 struct MenuBarView: View {
+    @AppStorage("hasShownWelcome") private var hasShownWelcome = false
     @ObservedObject private var panicManager = PanicModeManager.shared
     @ObservedObject private var trigger = LockTrigger.shared
     @ObservedObject private var monitor = BluetoothMonitor.shared
     @ObservedObject private var settings = SettingsStore.shared
 
     var body: some View {
+        if !hasShownWelcome {
+            WelcomeView()
+        } else {
+            mainView
+        }
+    }
+
+    private var mainView: some View {
         VStack(spacing: 0) {
             header
             Divider()
@@ -37,21 +46,36 @@ struct MenuBarView: View {
 
     private var panicButton: some View {
         let active = panicManager.isActive
-        return Button {
-            active ? panicManager.releasePanic() : panicManager.triggerPanic()
-        } label: {
-            Label(
-                active ? "Release Panic Mode" : "Panic Mode",
-                systemImage: active ? "eye" : "eye.slash"
-            )
-            .fontWeight(.medium)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background((active ? Color.green : Color.red).opacity(0.15))
-            .foregroundColor(active ? .green : .red)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        let action = { active ? panicManager.releasePanic() : panicManager.triggerPanic() }
+        let label = Label(
+            active ? "Release Panic Mode" : "Panic Mode",
+            systemImage: active ? "eye" : "eye.slash"
+        )
+        .fontWeight(.medium)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+
+        return Group {
+            if #available(macOS 26, *) {
+                // Liquid Glass tinted button for macOS 26+
+                Button(action: action) { label.foregroundColor(active ? .green : .red) }
+                    .glassEffect(
+                        .regular
+                            .tint(active ? Color.green : Color.red)
+                            .interactive(),
+                        in: .rect(cornerRadius: 6)
+                    )
+                    .buttonStyle(.plain)
+            } else {
+                Button(action: action) {
+                    label
+                        .background((active ? Color.green : Color.red).opacity(0.15))
+                        .foregroundColor(active ? .green : .red)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .buttonStyle(.plain)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
     }

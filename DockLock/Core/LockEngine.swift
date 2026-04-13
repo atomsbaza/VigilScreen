@@ -5,8 +5,14 @@ struct LockEngine {
     /// Locks the screen. Tries CGSession first, falls back to screensaver activation.
     static func lockScreen() {
         if tryCGSession() { return }
-        // Fallback: activate screensaver (also locks if "Require password immediately" is set)
-        NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Library/CoreServices/ScreenSaverEngine.app"))
+        // Fallback: activate screensaver (also locks if "Require password immediately" is set).
+        // Note: NSWorkspace.open is asynchronous — lock is best-effort with no completion callback.
+        let screensaverURL = URL(fileURLWithPath: "/System/Library/CoreServices/ScreenSaverEngine.app")
+        guard FileManager.default.fileExists(atPath: screensaverURL.path) else {
+            print("[DockLock] LockEngine: screensaver fallback unavailable — CGSession and ScreenSaverEngine both missing")
+            return
+        }
+        NSWorkspace.shared.open(screensaverURL)
     }
 
     @discardableResult

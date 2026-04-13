@@ -52,6 +52,19 @@ private struct GeneralSettingsView: View {
                     }
                 }
             }
+
+            Section("About") {
+                if let privacyURL = URL(string: "https://github.com/atomsbaza/DockLock#privacy") {
+                    Link(destination: privacyURL) {
+                        Label("Privacy Policy", systemImage: "hand.raised")
+                    }
+                }
+                if let issuesURL = URL(string: "https://github.com/atomsbaza/DockLock/issues") {
+                    Link(destination: issuesURL) {
+                        Label("Report an Issue", systemImage: "exclamationmark.bubble")
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .navigationTitle("General")

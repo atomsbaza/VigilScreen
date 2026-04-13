@@ -274,6 +274,56 @@ Test target `DockLockTests` added — 39 tests, 0 failures.
 
 Not unit-testable (requires real device/hardware): BT scanning, `CGSession` lock, Touch ID, `NSRunningApplication.hide()`
 
+### 🔄 Code Optimization (Pre-Release)
+
+Issues found from codebase audit — fix before v0.1.0:
+
+**High Priority**
+- [x] `PermissionManager.swift:24-37` — Accessibility permission timer polls every 1s with no timeout; add a max poll count (e.g. 60 attempts) or stop after permission is confirmed
+- [x] `BluetoothMonitor.swift:206-228` — Keychain `SecItemAdd`/`SecItemDelete` errors silently ignored; add error logging
+- [x] `PermissionManager.swift:18` — Force unwrap `URL(string:)!`; replace with `guard let` + fallback
+
+**Medium Priority**
+- [x] `PanicModeManager.swift:10-11` — `hiddenApps` array and `isAuthenticating` mutated without thread synchronization; add `@MainActor` to the class
+- [x] `AppDelegate.swift:59` — Settings `NSWindow` never freed after close (`isReleasedWhenClosed = false` + strong ref); nil out `settingsWindow` in `windowWillClose` or set `isReleasedWhenClosed = true`
+- [x] `LockEngine.swift:6-10` — Screensaver fallback fires async with no confirmation screen was actually locked
+- [x] `BluetoothMonitor.swift:77-84` — `pair()` calls `startMonitoringScan()` without stopping the discovery scan first; call `stopDiscoveryScan()` inside `pair()` before starting monitor scan
+
+**Low Priority**
+- [x] `PanicModeManager.swift:21` — `NSScreen.screens[0]` crashes if no screens at blur window lazy init; use `.first` with a safe fallback
+
+---
+
+### 🔄 Apple Quality Standards (Pre-Release)
+
+Issues found from Apple platform audit — fix before v0.1.0:
+
+**P0 — Blocker**
+- [x] No `PrivacyInfo.xcprivacy` — required for notarization on macOS 15+ when using Bluetooth + Keychain APIs; add file declaring `NSPrivacyAccessedAPICategoryBluetooth` and `NSPrivacyAccessedAPICategoryKeychain`
+
+**P1 — High**
+- [x] `project.pbxproj` — `SWIFT_VERSION = 5.0` but codebase uses Swift 6 features (`@MainActor`, strict concurrency); change to `SWIFT_VERSION = 6.0`
+- [x] No privacy policy linked in app or Settings; add a simple privacy policy page and link it in `SettingsView`
+- [x] No first-run onboarding; new users see a blank menu bar icon with no guidance — add a one-time welcome/setup flow in `MenuBarView`
+
+**P2 — Medium**
+- [x] `project.pbxproj` — `NSHumanReadableCopyright` is empty; set to `© 2026 Pisit Koolplukpol`
+- [x] `project.pbxproj` — `MACOSX_DEPLOYMENT_TARGET = 26.3` (pre-release); lowered to `15.0` for broad compatibility
+- [x] `AppDelegate.swift:17-19` — Accessibility permission opens System Settings on every launch until granted; gate to first-launch only with a `UserDefaults` flag
+
+**P3 — Low**
+- [x] No support/contact URL in app Settings
+
+---
+
+### ✅ UI Polish & Design
+
+- [x] **Popover height** — dynamic height: 220px for welcome view, 130px for main view; auto-resizes when welcome is dismissed via `UserDefaults.didChangeNotification`
+- [x] **First-run welcome screen** — `WelcomeView.swift` with 3 live-status setup steps (Accessibility, Bluetooth pair, Blocklist); shows once via `@AppStorage("hasShownWelcome")`
+- [x] **Liquid Glass (macOS 26+)** — panic button uses `.glassEffect(.regular.tint(red/green).interactive())` on macOS 26; welcome "Open Settings" uses `.buttonStyle(.glassProminent)`; macOS 15 fallback unchanged; gated with `#available(macOS 26, *)`
+
+---
+
 ### 🔄 Week 8-10: Release
 
 - [ ] Code signing + notarization

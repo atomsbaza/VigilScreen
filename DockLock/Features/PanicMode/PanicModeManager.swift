@@ -2,6 +2,7 @@ import AppKit
 import LocalAuthentication
 import Combine
 
+@MainActor
 class PanicModeManager: ObservableObject {
     static let shared = PanicModeManager()
 
@@ -18,7 +19,7 @@ class PanicModeManager: ObservableObject {
     // Black overlay shown over full-screen panic apps (where hide() silently fails)
     // when the user switches to their Space.
     private lazy var blurOverlayWindow: NSWindow = {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = NSScreen.main ?? NSScreen.screens.first ?? NSScreen()
         let win = NSWindow(
             contentRect: screen.frame,
             styleMask: .borderless,
@@ -187,12 +188,12 @@ class PanicModeManager: ObservableObject {
 
     // MARK: - Biometrics
 
-    private func authenticateWithBiometrics(completion: @escaping (Bool) -> Void) {
+    private func authenticateWithBiometrics(completion: @MainActor @escaping (Bool) -> Void) {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
             context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock DockLock Panic Mode") { success, _ in
-                DispatchQueue.main.async { completion(success) }
+                Task { @MainActor in completion(success) }
             }
             return
         }
@@ -200,7 +201,7 @@ class PanicModeManager: ObservableObject {
             .deviceOwnerAuthenticationWithBiometrics,
             localizedReason: "Unlock DockLock Panic Mode"
         ) { success, _ in
-            DispatchQueue.main.async { completion(success) }
+            Task { @MainActor in completion(success) }
         }
     }
 
@@ -223,5 +224,4 @@ class PanicModeManager: ObservableObject {
         }
     }
 
-    deinit { unregisterShortcut() }
 }

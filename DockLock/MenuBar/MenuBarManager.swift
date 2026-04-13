@@ -7,6 +7,11 @@ class MenuBarManager {
     private var popover: NSPopover?
     private var cancellables = Set<AnyCancellable>()
 
+    /// Height when first-run welcome is shown (3 steps + header + footer).
+    private static let welcomeHeight: CGFloat = 220
+    /// Height for the normal main view (header + panic button + footer).
+    private static let mainHeight: CGFloat = 130
+
     func setup() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -18,6 +23,9 @@ class MenuBarManager {
             button.target = self
         }
 
+        let hasShownWelcome = UserDefaults.standard.bool(forKey: "hasShownWelcome")
+        let initialHeight = hasShownWelcome ? Self.mainHeight : Self.welcomeHeight
+
         // Pin the root view to an explicit size so SwiftUI never triggers a
         // resize measurement during NSPopover's layout pass, which causes the
         // "-layoutSubtreeIfNeeded called during layout" recursion warning.
@@ -27,16 +35,35 @@ class MenuBarManager {
 
         let hostingController = NSHostingController(rootView: rootView)
         hostingController.sizingOptions = []
-        hostingController.preferredContentSize = NSSize(width: 280, height: 220)
+        hostingController.preferredContentSize = NSSize(width: 280, height: initialHeight)
 
         let popover = NSPopover()
-        popover.contentSize = NSSize(width: 280, height: 220)
+        popover.contentSize = NSSize(width: 280, height: initialHeight)
         popover.behavior = .transient
         popover.animates = false
         popover.contentViewController = hostingController
         self.popover = popover
 
         observePanicState()
+        observeWelcomeState()
+    }
+
+    // MARK: - Welcome state
+
+    private func observeWelcomeState() {
+        // Resize the popover when the user dismisses the welcome screen.
+        NotificationCenter.default
+            .publisher(for: UserDefaults.didChangeNotification)
+            .map { _ in UserDefaults.standard.bool(forKey: "hasShownWelcome") }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] hasShown in
+                guard let self, hasShown else { return }
+                let size = NSSize(width: 280, height: Self.mainHeight)
+                self.popover?.contentViewController?.preferredContentSize = size
+                self.popover?.contentSize = size
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Icon state

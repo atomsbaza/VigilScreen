@@ -14,7 +14,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menuBarManager = MenuBarManager()
         menuBarManager?.setup()
 
-        if !PermissionManager.shared.hasAccessibilityPermission {
+        // Only prompt for accessibility permission on the very first launch.
+        // Subsequent launches show a status badge in Settings instead.
+        let hasPromptedBefore = UserDefaults.standard.bool(forKey: "hasPromptedAccessibility")
+        if !PermissionManager.shared.hasAccessibilityPermission && !hasPromptedBefore {
+            UserDefaults.standard.set(true, forKey: "hasPromptedAccessibility")
             PermissionManager.shared.requestAccessibilityIfNeeded()
         }
 
@@ -57,10 +61,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         window.setFrameAutosaveName("DockLockSettings")
         window.isReleasedWhenClosed = false
+        window.delegate = self
         settingsWindow = window
 
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+// MARK: - NSWindowDelegate
+
+extension AppDelegate: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        if (notification.object as? NSWindow) === settingsWindow {
+            settingsWindow = nil
+        }
     }
 }

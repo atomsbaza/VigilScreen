@@ -279,7 +279,7 @@ MIT License — see [LICENSE](LICENSE).
 
 - 📖 [Documentation](CONTRIBUTING.md)
 - 🐛 [Report Bug](https://github.com/atomsbaza/DockLock/issues/new)
-- 💡 [Request Feature](https://github.com/atomsbaza/DockLock/discussions)
+- 💡 [Request Feature](https://github.com/atomsbaza/DockLock/issues/new?labels=enhancement)
 - 🔒 [Security Issue](mailto:atomsbaza2@gmail.com)
 
 ---

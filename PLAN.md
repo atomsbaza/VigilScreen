@@ -327,7 +327,7 @@ Issues found from Apple platform audit — fix before v0.1.0:
 ### 🔄 Week 8-10: Release
 
 **v0.1.0 — Free GitHub Release (no Apple Developer account required)**
-- [ ] `.dmg` packaging (Xcode → Distribute App → Copy App, no signing required)
+- [ ] `.dmg` packaging (see steps below)
 - [x] GitHub repo init (`git init`, `main` branch, `.gitignore`)
 - [x] README.md — features, install, architecture, privacy
 - [x] README.md — Gatekeeper disclaimer + `xattr -cr` instructions
@@ -335,6 +335,48 @@ Issues found from Apple platform audit — fix before v0.1.0:
 - [ ] Demo GIF (Screen Recording + Gifski)
 - [ ] v0.1.0 Public Release on GitHub Releases
 - [ ] Post on r/macapps, Hacker News (Show HN)
+
+#### Step-by-step: Export .dmg without paid Apple Developer account
+
+**Step 1 — Sign in with free Apple ID in Xcode**
+1. Xcode → Settings (⌘+,) → Accounts tab
+2. Click **+** → Apple ID → sign in with your Apple ID (free, no $99 needed)
+
+**Step 2 — Set signing in the project**
+1. Click **DockLock** (blue icon) in the left sidebar
+2. Under TARGETS → select **DockLock**
+3. Click **Signing & Capabilities** tab
+4. **Team** dropdown → select your personal Apple ID team
+5. Xcode will auto-generate a local signing certificate
+
+**Step 3 — Archive**
+1. Top bar: set destination to **Any Mac** (next to the ▶ play button)
+2. Menu bar → **Product → Archive**
+3. Wait for build to finish — **Organizer** window opens automatically
+
+**Step 4 — Export as .app**
+1. In Organizer, select the archive
+2. Click **Distribute App**
+3. Choose **Custom** → **Copy App** → **Next → Export**
+4. Pick a folder → Xcode saves `DockLock.app`
+
+**Step 5 — Package as .dmg**
+```bash
+hdiutil create -volname "DockLock" \
+  -srcfolder /path/to/DockLock.app \
+  -ov -format UDZO \
+  DockLock-v0.1.0.dmg
+```
+Replace `/path/to/DockLock.app` with the actual export path from Step 4.
+
+**Step 6 — Create GitHub Release**
+1. Go to https://github.com/atomsbaza/DockLock/releases → **Draft a new release**
+2. Tag: `v0.1.0` | Title: `DockLock v0.1.0`
+3. Upload `DockLock-v0.1.0.dmg`
+4. Add release notes (copy from REDDIT_POST.md What It Does section)
+5. Click **Publish release**
+
+---
 
 **v0.2.0 — Notarized Release (requires $99/yr Apple Developer Program)**
 - [ ] Code signing + notarization

@@ -69,6 +69,9 @@ class LockTrigger: ObservableObject {
             self.secondsRemaining -= 1
             if self.secondsRemaining <= 0 {
                 self.resetCountdown()
+                // Trigger Panic Mode first so sensitive apps are hidden even if
+                // the user wakes the screen without authenticating.
+                PanicModeManager.shared.triggerPanic()
                 LockEngine.lockScreen()
             }
         }

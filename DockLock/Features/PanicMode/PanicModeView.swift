@@ -16,6 +16,25 @@ struct PanicModeView: View {
             }
 
             Section {
+                // Preview: how many apps will be hidden
+                let appsToHide = NSWorkspace.shared.runningApplications.filter {
+                    guard let id = $0.bundleIdentifier else { return false }
+                    return blocklist.bundleIDs.contains(id) && $0.activationPolicy == .regular
+                }
+                if !manager.isActive && !appsToHide.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "eye.slash")
+                            .foregroundStyle(.secondary)
+                        Text("\(appsToHide.count) app\(appsToHide.count == 1 ? "" : "s") will be hidden:")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Text(appsToHide.compactMap { $0.localizedName }.joined(separator: ", "))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+
                 Button(manager.isActive ? "Release Panic Mode" : "Trigger Panic Mode") {
                     if manager.isActive {
                         manager.releasePanic()
@@ -29,7 +48,7 @@ struct PanicModeView: View {
             } header: {
                 Text("Test")
             } footer: {
-                Text("You can also press ⌘⇧L from anywhere.")
+                Text(manager.isActive ? "Panic Mode is active. Press Release or ⌘⇧L to restore apps." : "You can also press ⌘⇧L from anywhere.")
                     .foregroundStyle(.secondary)
             }
 

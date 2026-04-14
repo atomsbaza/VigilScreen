@@ -85,11 +85,30 @@ struct ProximityView: View {
 
     @ViewBuilder private var liveStatusSection: some View {
         if monitor.pairedDeviceName != nil {
-            Section("Live Status") {
+            Section {
                 HStack {
                     Label("Signal", systemImage: "antenna.radiowaves.left.and.right")
                     Spacer()
+                    SignalBars(rssi: monitor.currentRSSI)
                     RSSIBadge(rssi: monitor.currentRSSI, threshold: Int(settings.proximityRSSIThreshold))
+                }
+                // Threshold indicator — shows where current signal sits vs the lock threshold
+                if monitor.currentRSSI != 0 {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ThresholdBar(
+                            rssi: monitor.currentRSSI,
+                            threshold: Int(settings.proximityRSSIThreshold)
+                        )
+                        HStack {
+                            Text("Weak (-90)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text("Strong (-60)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 if trigger.isCountingDown {
                     HStack {
@@ -102,6 +121,11 @@ struct ProximityView: View {
                             .foregroundColor(.orange)
                     }
                 }
+            } header: {
+                Text("Live Status")
+            } footer: {
+                Text("Walk away from your Mac to find the right signal threshold for your space.")
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -178,6 +202,7 @@ private struct ScanSection: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
+                            SignalBars(rssi: device.rssi)
                             Image(systemName: "plus.circle.fill").foregroundColor(.accentColor)
                         }
                         .contentShape(Rectangle())
@@ -191,6 +216,86 @@ private struct ScanSection: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+// MARK: - Signal bars
+
+private struct SignalBars: View {
+    let rssi: Int
+
+    /// 0–4 filled bars based on RSSI strength
+    private var filledBars: Int {
+        if rssi == 0    { return 0 }
+        if rssi >= -60  { return 4 }
+        if rssi >= -70  { return 3 }
+        if rssi >= -80  { return 2 }
+        return 1
+    }
+
+    private var color: Color {
+        switch filledBars {
+        case 4: return .green
+        case 3: return .green
+        case 2: return .yellow
+        default: return .red
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 2) {
+            ForEach(0..<4, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 1.5)
+                    .frame(width: 4, height: CGFloat(4 + i * 3))
+                    .foregroundColor(i < filledBars ? color : Color.secondary.opacity(0.3))
+            }
+        }
+    }
+}
+
+// MARK: - Threshold bar
+
+private struct ThresholdBar: View {
+    let rssi: Int
+    let threshold: Int
+
+    private var signalProgress: Double {
+        // Map RSSI from -90...−60 to 0...1
+        let clamped = max(-90, min(-60, Double(rssi)))
+        return (clamped - (-90)) / 30.0
+    }
+
+    private var thresholdProgress: Double {
+        let clamped = max(-90, min(-60, Double(threshold)))
+        return (clamped - (-90)) / 30.0
+    }
+
+    private var barColor: Color {
+        Double(rssi) >= Double(threshold) ? .green : .red
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                // Track
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(height: 6)
+
+                // Signal fill
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(barColor)
+                    .frame(width: geo.size.width * signalProgress, height: 6)
+                    .animation(.easeInOut(duration: 0.3), value: signalProgress)
+
+                // Threshold marker
+                Rectangle()
+                    .fill(Color.orange)
+                    .frame(width: 2, height: 12)
+                    .offset(x: geo.size.width * thresholdProgress - 1)
+            }
+        }
+        .frame(height: 12)
     }
 }
 

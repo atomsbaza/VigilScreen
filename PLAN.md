@@ -329,11 +329,13 @@ Issues found from Apple platform audit — fix before v0.1.0:
 ### 🔄 Week 8-10: Release
 
 **v0.1.0 — Free GitHub Release (no Apple Developer account required)**
-- [ ] `.dmg` packaging (see steps below)
+- [x] App icon — 1024×1024 PNG added to `Assets.xcassets` AppIcon slot
+- [x] `.dmg` packaging — `DockLock-v0.1.0.dmg` created via `hdiutil`
 - [x] GitHub repo init (`git init`, `main` branch, `.gitignore`)
 - [x] README.md — features, install, architecture, privacy
 - [x] README.md — Gatekeeper disclaimer + `xattr -cr` instructions
 - [x] MIT License
+- [ ] Re-archive with icon + focus fix → new `.dmg`
 - [ ] Demo GIF (Screen Recording + Gifski)
 - [ ] v0.1.0 Public Release on GitHub Releases
 - [ ] Post on r/macapps, Hacker News (Show HN)
@@ -436,6 +438,8 @@ github.com/atomsbaza/DockLock/
 
 ### Launch Checklist
 
+- [x] App icon designed and added to Xcode
+- [ ] Re-archive → new `.dmg` (includes icon + settings focus fix)
 - [ ] Demo GIF ใน README (ใช้ Screen Recording + Gifski)
 - [ ] Homebrew Cask formula (`brew install --cask docklock`)
 - [ ] Post บน r/macapps, Hacker News (Show HN)

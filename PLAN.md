@@ -335,9 +335,9 @@ Issues found from Apple platform audit — fix before v0.1.0:
 - [x] README.md — features, install, architecture, privacy
 - [x] README.md — Gatekeeper disclaimer + `xattr -cr` instructions
 - [x] MIT License
-- [ ] Re-archive with icon + focus fix → new `.dmg`
+- [x] Re-archive with icon + focus fix → new `.dmg`
 - [ ] Demo GIF (Screen Recording + Gifski)
-- [ ] v0.1.0 Public Release on GitHub Releases
+- [x] v0.1.0 Public Release on GitHub Releases — https://github.com/atomsbaza/DockLock/releases/tag/v0.1.0
 - [ ] Post on r/macapps, Hacker News (Show HN)
 
 #### Step-by-step: Export .dmg without paid Apple Developer account
@@ -439,7 +439,7 @@ github.com/atomsbaza/DockLock/
 ### Launch Checklist
 
 - [x] App icon designed and added to Xcode
-- [ ] Re-archive → new `.dmg` (includes icon + settings focus fix)
+- [x] Re-archive → new `.dmg` (includes icon + settings focus fix)
 - [ ] Demo GIF ใน README (ใช้ Screen Recording + Gifski)
 - [ ] Homebrew Cask formula (`brew install --cask docklock`)
 - [ ] Post บน r/macapps, Hacker News (Show HN)

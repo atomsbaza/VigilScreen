@@ -10,6 +10,7 @@ class SettingsStore: ObservableObject {
     @Published var proximityLockEnabled: Bool
     @Published var proximityLockDelay: Double
     @Published var proximityRSSIThreshold: Double
+    @Published var showMenuBarStats: Bool
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -21,6 +22,7 @@ class SettingsStore: ObservableObject {
         proximityLockEnabled  = d.bool(forKey: Keys.proximityLockEnabled)
         proximityLockDelay    = d.object(forKey: Keys.proximityLockDelay)    as? Double ?? 10.0
         proximityRSSIThreshold = d.object(forKey: Keys.proximityRSSIThreshold) as? Double ?? -75.0
+        showMenuBarStats      = d.object(forKey: Keys.showMenuBarStats)      as? Bool   ?? false
 
         persist(\.$launchAtLogin,         key: Keys.launchAtLogin)
         persist(\.$panicShortcutEnabled,  key: Keys.panicShortcutEnabled)
@@ -28,6 +30,7 @@ class SettingsStore: ObservableObject {
         persist(\.$proximityLockEnabled,  key: Keys.proximityLockEnabled)
         persist(\.$proximityLockDelay,    key: Keys.proximityLockDelay)
         persist(\.$proximityRSSIThreshold, key: Keys.proximityRSSIThreshold)
+        persist(\.$showMenuBarStats,      key: Keys.showMenuBarStats)
     }
 
     private func persist<T>(_ kp: KeyPath<SettingsStore, Published<T>.Publisher>, key: String) {
@@ -44,5 +47,6 @@ class SettingsStore: ObservableObject {
         static let proximityLockEnabled   = "proximityLockEnabled"
         static let proximityLockDelay     = "proximityLockDelay"
         static let proximityRSSIThreshold = "proximityRSSIThreshold"
+        static let showMenuBarStats       = "showMenuBarStats"
     }
 }

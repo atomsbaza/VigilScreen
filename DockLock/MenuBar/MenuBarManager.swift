@@ -46,6 +46,7 @@ class MenuBarManager {
 
         observePanicState()
         observeWelcomeState()
+        observeMenuBarStats()
     }
 
     // MARK: - Welcome state
@@ -64,6 +65,42 @@ class MenuBarManager {
                 self.popover?.contentSize = size
             }
             .store(in: &cancellables)
+    }
+
+    // MARK: - Menubar stats
+
+    private func observeMenuBarStats() {
+        // Combine settings toggle + RSSI + countdown into a single update stream.
+        Publishers.CombineLatest4(
+            SettingsStore.shared.$showMenuBarStats,
+            BluetoothMonitor.shared.$currentRSSI,
+            BluetoothMonitor.shared.$isDeviceVisible,
+            LockTrigger.shared.$secondsRemaining
+        )
+        .receive(on: RunLoop.main)
+        .sink { [weak self] showStats, rssi, visible, seconds in
+            self?.updateMenuBarTitle(
+                showStats: showStats,
+                rssi: rssi,
+                visible: visible,
+                countdown: seconds
+            )
+        }
+        .store(in: &cancellables)
+    }
+
+    private func updateMenuBarTitle(showStats: Bool, rssi: Int, visible: Bool, countdown: Int) {
+        guard showStats, BluetoothMonitor.shared.pairedDeviceUUID != nil else {
+            statusItem?.button?.title = ""
+            return
+        }
+        if LockTrigger.shared.isCountingDown {
+            statusItem?.button?.title = " \(countdown)s"
+        } else if visible, rssi != 0 {
+            statusItem?.button?.title = " \(rssi)"
+        } else {
+            statusItem?.button?.title = ""
+        }
     }
 
     // MARK: - Icon state

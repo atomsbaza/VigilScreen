@@ -42,6 +42,15 @@ private struct GeneralSettingsView: View {
                     }
             }
 
+            Section("Menu Bar") {
+                Toggle("Show live Bluetooth stats", isOn: $settings.showMenuBarStats)
+                if settings.showMenuBarStats {
+                    Text("Displays signal strength (dBm) and countdown next to the menu bar icon when Proximity Lock is active.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             Section("Permissions") {
                 HStack {
                     Label("Accessibility", systemImage: "accessibility")

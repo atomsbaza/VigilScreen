@@ -72,52 +72,57 @@ class PanicModeManager: ObservableObject {
         overlayWindows.values.forEach { $0.orderOut(nil) }
     }
 
-    /// Returns the set of NSScreens that contain at least one window belonging to a blocklisted app.
+    /// Returns the NSScreens that currently have an on-screen window belonging to a blocklisted app.
+    ///
+    /// Called only when a blocklisted app is frontmost (i.e. hide() silently failed — full-screen
+    /// case). At that point the app IS visible so CGWindowList will find its window.
+    /// For windowed apps where hide() succeeded the windows are off-screen and this returns [],
+    /// which correctly causes all overlays to be hidden.
     private func screensContainingBlocklistedWindows() -> [NSScreen] {
         let options = CGWindowListOption([.optionOnScreenOnly, .excludeDesktopElements])
         guard let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
 
-        // Build a set of PIDs for running hidden apps (they may still have windows on screen
-        // for a brief moment) plus any blocklisted apps that are frontmost (full-screen case).
-        let blockedPIDs = Set(
-            hiddenApps.compactMap { $0.processIdentifier == 0 ? nil : $0.processIdentifier }
-        )
+        let blockedPIDs = Set(hiddenApps.compactMap { app -> pid_t? in
+            let pid = app.processIdentifier
+            return pid == 0 ? nil : pid
+        })
         guard !blockedPIDs.isEmpty else { return [] }
 
-        // Collect CGRects of windows owned by blocklisted PIDs.
+        // Collect on-screen window rects (CG coordinates) for blocklisted PIDs.
+        // kCGWindowBounds values come back as NSNumber — cast to NSDictionary, not [String: CGFloat].
         var windowRects: [CGRect] = []
         for info in list {
-            guard let pid = info[kCGWindowOwnerPID as String] as? pid_t,
-                  blockedPIDs.contains(pid),
-                  let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat] else { continue }
+            guard let pidValue = info[kCGWindowOwnerPID as String] as? Int,
+                  blockedPIDs.contains(pid_t(pidValue)),
+                  let boundsDict = info[kCGWindowBounds as String] as? NSDictionary else { continue }
             var rect = CGRect.zero
-            CGRectMakeWithDictionaryRepresentation(boundsDict as CFDictionary, &rect)
+            CGRectMakeWithDictionaryRepresentation(boundsDict, &rect)
             if !rect.isEmpty { windowRects.append(rect) }
         }
-
         guard !windowRects.isEmpty else { return [] }
 
-        // Map each window rect to the NSScreen it belongs to.
-        // NSScreen uses flipped coordinates (origin at top-left of menu-bar screen),
-        // while CGWindowListCopyWindowInfo uses CG coordinates (origin at bottom-left).
-        // Convert by flipping the Y axis against the full virtual desktop height.
-        let totalHeight = NSScreen.screens.map { $0.frame.maxY }.max() ?? 0
-        var result: [NSScreen] = []
-        for screen in NSScreen.screens {
-            // Convert NSScreen frame (AppKit) to CG coordinates for comparison.
-            let cgScreenFrame = CGRect(
+        // Coordinate systems:
+        //   CGWindowList  — origin at TOP-LEFT of the primary (menu-bar) screen, Y increases DOWN.
+        //   NSScreen.frame — origin at BOTTOM-LEFT of the primary screen, Y increases UP.
+        //
+        // Conversion (AppKit → CG):
+        //   cgY = primaryScreen.frame.maxY - appKitRect.maxY
+        //
+        // Using primaryScreen.frame.maxY (the primary screen's height, since its origin is y=0)
+        // as the reference — NOT the tallest screen's maxY, which would shift shorter screens down.
+        let mainMaxY = NSScreen.main?.frame.maxY ?? 0
+
+        return NSScreen.screens.filter { screen in
+            let cgFrame = CGRect(
                 x: screen.frame.minX,
-                y: totalHeight - screen.frame.maxY,
+                y: mainMaxY - screen.frame.maxY,
                 width: screen.frame.width,
                 height: screen.frame.height
             )
-            if windowRects.contains(where: { $0.intersects(cgScreenFrame) }) {
-                result.append(screen)
-            }
+            return windowRects.contains { $0.intersects(cgFrame) }
         }
-        return result
     }
 
     private init() {

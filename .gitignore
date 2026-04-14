@@ -44,6 +44,11 @@ fastlane/test_output
 
 # Local notes
 REDDIT_POST.md
+release_*.md
+
+# Exported builds
+*.dmg
+DockLock */
 
 # Secrets
 *.p12

@@ -448,25 +448,29 @@ github.com/atomsbaza/DockLock/
 
 ---
 
-## Phase 2 Preview (หลัง v0.1.0)
+## Phase 2 (v0.2.0)
 
 ### ✅ Done
-- **Lock History Log** — records Proximity Lock and Panic Mode events with timestamp
-- **Menubar Live Stats** — shows RSSI and countdown next to menu bar icon (toggle in General settings)
+- [x] **Lock History Log** — records Proximity Lock and Panic Mode events with timestamp, shown in Settings → History
+- [x] **Menubar Live Stats** — RSSI and countdown next to menu bar icon, toggle in Settings → General
+- [x] **Multi-screen full-screen overlay** — one overlay per screen via `overlayWindows: [CGDirectDisplayID: NSWindow]`
+- [x] **Settings improvements** — panic test shows apps-to-hide preview; RSSI live pairing UI with signal bars + threshold bar
 
 ### 🔄 To Do
 
-- ✅ **Multi-screen full-screen overlay bug** — fixed. Replaced single `blurOverlayWindow` with `overlayWindows: [CGDirectDisplayID: NSWindow]`. One overlay per screen, covering all displays simultaneously.
+**Bugs**
+- [ ] **Widget leak during Panic Mode** — blocklisted apps with Notification Center widgets (e.g. Calendar) stay visible when app is hidden. Fix: auto-close Notification Center when Panic Mode triggers (Option A), plus warn in settings if a blocklisted app has a widget (Option B)
 
-- **Widget leak during Panic Mode** — if a blocklisted app (e.g. Calendar, Fantastical) has a Notification Center widget, the widget remains visible even when the app is hidden. `NSRunningApplication.hide()` only hides the app window, not its widget. Fix options:
-  - **Option A (simple):** Close Notification Center automatically when Panic Mode triggers using `CGEvent` or `NSWorkspace` to simulate pressing the Notification Center key
-  - **Option B (thorough):** Detect if any blocklisted app has an active widget and warn the user in settings to remove those widgets manually
-  - Recommended: Option A as the default behaviour, Option B as a settings warning
+**Features**
+- [ ] **Notarized release (v0.2.0)** — code signing + notarization, no Gatekeeper warning, Homebrew Cask (`brew install --cask docklock`)
+- [ ] **Intruder Capture** — photo taken on wrong password, saved locally, shown in History
+- [ ] **iCloud Sync** — sync settings and blocklist across multiple Macs
 
-- **Intruder Capture** — take a photo when wrong password entered, saved locally
-- **Shoulder Surfing Detection** — Core ML + Vision framework
-- **iCloud Sync** — sync settings across multiple Macs
-- **Notarized release** — code signing + notarization, Homebrew Cask (`brew install --cask docklock`)
+**Future / Backlog**
+- [ ] **Shoulder Surfing Detection** — Core ML + Vision framework detects someone looking over your shoulder
+- [ ] **Multiple paired devices** — pair both iPhone and Apple Watch, lock when both are gone
+- [ ] **Custom lock modes** — different blocklists per context (e.g. "office", "café")
+- [ ] **Mac App Store release** — requires sandboxing review
 
 ---
 

@@ -450,10 +450,18 @@ github.com/atomsbaza/DockLock/
 
 ## Phase 2 Preview (หลัง v0.1.0)
 
-- **Intruder Capture** — ถ่ายรูปผู้บุกรุก + push notification ไป iPhone
+### ✅ Done
+- **Lock History Log** — records Proximity Lock and Panic Mode events with timestamp
+- **Menubar Live Stats** — shows RSSI and countdown next to menu bar icon (toggle in General settings)
+
+### 🔄 To Do
+
+- **Multi-screen full-screen overlay bug** — when using an external display + built-in screen, the Panic Mode blur overlay only covers one screen. The overlay window is created from `NSScreen.main` only. Fix: create one overlay window per screen (`NSScreen.screens`), show/hide all of them together.
+
+- **Intruder Capture** — take a photo when wrong password entered, saved locally
 - **Shoulder Surfing Detection** — Core ML + Vision framework
-- **iCloud Sync** — sync settings ระหว่าง Mac หลายเครื่อง
-- **Menubar Quick Stats** — แสดง Bluetooth RSSI live บน menubar
+- **iCloud Sync** — sync settings across multiple Macs
+- **Notarized release** — code signing + notarization, Homebrew Cask (`brew install --cask docklock`)
 
 ---
 

@@ -461,7 +461,7 @@ github.com/atomsbaza/DockLock/
 
 **Bugs**
 - [x] **Hidden app flashes on window switch** — re-applies `.hide()` in `didActivateApplicationNotification` when a blocklisted app becomes frontmost, so it's pushed back before the switch animation settles.
-- [x] **External display shows overlay on wrong screen** — `screensContainingBlocklistedWindows()` uses `CGWindowListCopyWindowInfo` to find which screens hold blocklisted app windows; overlays are shown only on those screens and hidden on the rest.
+- [x] **External display shows overlay on wrong screen** — `screensContainingBlocklistedWindows()` uses `CGWindowListCopyWindowInfo` to find which screens hold blocklisted app windows; overlays are shown only on those screens and hidden on the rest. Fixed coordinate conversion (use `NSScreen.main?.frame.maxY` as CG reference, not tallest screen's `maxY`). Fixed `kCGWindowBounds` bridge cast (`NSDictionary` not `[String: CGFloat]`). Removed fallback-to-all-screens so overlays never bleed into Spaces with no blocklisted app open.
 
 **Features**
 - [ ] **Notarized release (v0.2.0)** — code signing + notarization, no Gatekeeper warning, Homebrew Cask (`brew install --cask docklock`)

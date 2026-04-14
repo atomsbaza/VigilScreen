@@ -201,9 +201,18 @@ class PanicModeManager: ObservableObject {
     private func startMonitoringSpaceSwitches() {
         let center = NSWorkspace.shared.notificationCenter
 
-        // didActivateApplicationNotification carries the newly active app in userInfo —
-        // more reliable than reading frontmostApplication from activeSpaceDidChangeNotification,
-        // which fires before the frontmost app property updates.
+        // ⌘Tab / clicking a Dock icon unhides the app BEFORE activating it.
+        // didUnhideApplicationNotification fires at that earlier moment, giving us a
+        // chance to re-hide the app before its window ever appears on screen.
+        center.publisher(for: NSWorkspace.didUnhideApplicationNotification)
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
+            .filter { [weak self] app in self?.isBlocklisted(app) ?? false }
+            .sink { app in app.hide() }
+            .store(in: &panicCancellables)
+
+        // didActivateApplicationNotification is a second line of defence for cases where
+        // the app becomes frontmost without a prior unhide event (e.g. full-screen apps).
         center.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .receive(on: DispatchQueue.main)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }

@@ -455,11 +455,13 @@ github.com/atomsbaza/DockLock/
 - [x] **Menubar Live Stats** — RSSI and countdown next to menu bar icon, toggle in Settings → General
 - [x] **Multi-screen full-screen overlay** — one overlay per screen via `overlayWindows: [CGDirectDisplayID: NSWindow]`
 - [x] **Settings improvements** — panic test shows apps-to-hide preview; RSSI live pairing UI with signal bars + threshold bar
+- [x] **Widget leak during Panic Mode** — auto-closes Notification Center on panic trigger (hides NC process + simulates outside click); warns in Settings if a blocklisted app has a known Notification Center widget
 
 ### 🔄 To Do
 
 **Bugs**
-- [ ] **Widget leak during Panic Mode** — blocklisted apps with Notification Center widgets (e.g. Calendar) stay visible when app is hidden. Fix: auto-close Notification Center when Panic Mode triggers (Option A), plus warn in settings if a blocklisted app has a widget (Option B)
+- [x] **Hidden app flashes on window switch** — re-applies `.hide()` in `didActivateApplicationNotification` when a blocklisted app becomes frontmost, so it's pushed back before the switch animation settles.
+- [x] **External display shows overlay on wrong screen** — `screensContainingBlocklistedWindows()` uses `CGWindowListCopyWindowInfo` to find which screens hold blocklisted app windows; overlays are shown only on those screens and hidden on the rest.
 
 **Features**
 - [ ] **Notarized release (v0.2.0)** — code signing + notarization, no Gatekeeper warning, Homebrew Cask (`brew install --cask docklock`)

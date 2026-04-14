@@ -458,6 +458,11 @@ github.com/atomsbaza/DockLock/
 
 - ✅ **Multi-screen full-screen overlay bug** — fixed. Replaced single `blurOverlayWindow` with `overlayWindows: [CGDirectDisplayID: NSWindow]`. One overlay per screen, covering all displays simultaneously.
 
+- **Widget leak during Panic Mode** — if a blocklisted app (e.g. Calendar, Fantastical) has a Notification Center widget, the widget remains visible even when the app is hidden. `NSRunningApplication.hide()` only hides the app window, not its widget. Fix options:
+  - **Option A (simple):** Close Notification Center automatically when Panic Mode triggers using `CGEvent` or `NSWorkspace` to simulate pressing the Notification Center key
+  - **Option B (thorough):** Detect if any blocklisted app has an active widget and warn the user in settings to remove those widgets manually
+  - Recommended: Option A as the default behaviour, Option B as a settings warning
+
 - **Intruder Capture** — take a photo when wrong password entered, saved locally
 - **Shoulder Surfing Detection** — Core ML + Vision framework
 - **iCloud Sync** — sync settings across multiple Macs

@@ -188,12 +188,15 @@ class PanicModeManager: ObservableObject {
             .runningApplications(withBundleIdentifier: "com.apple.notificationcenterui")
             .forEach { $0.hide() }
 
-        // Strategy 2: simulate a click at the top-left of the main screen.
-        // NC is a transient NSPanel — it dismisses on any outside click.
-        // Top-left is safe (no UI elements there) and far from NC (which opens on the right).
+        // Strategy 2: simulate a click at the left-center of the main screen to dismiss the
+        // NC transient panel. The click must be in CG coordinates (origin = top-left of the
+        // primary screen, Y increases downward). screen.frame uses AppKit coordinates where
+        // minY = 0 is the BOTTOM, so passing minY+10 as a CG Y-coordinate lands at y=10 from
+        // the TOP — squarely in the Apple menu, which opens it. Use screen.frame.height / 2
+        // (vertical center) which is safe from both the menu bar and the Dock.
         guard let src = CGEventSource(stateID: .hidSystemState),
               let screen = NSScreen.main else { return }
-        let point = CGPoint(x: screen.frame.minX + 10, y: screen.frame.minY + 10)
+        let point = CGPoint(x: screen.frame.minX + 10, y: screen.frame.height / 2)
         CGEvent(mouseEventSource: src, mouseType: .leftMouseDown,
                 mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cgSessionEventTap)
         CGEvent(mouseEventSource: src, mouseType: .leftMouseUp,

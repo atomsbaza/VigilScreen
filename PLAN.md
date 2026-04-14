@@ -292,6 +292,7 @@ Issues found from codebase audit — fix before v0.1.0:
 
 **Low Priority**
 - [x] `PanicModeManager.swift:21` — `NSScreen.screens[0]` crashes if no screens at blur window lazy init; use `.first` with a safe fallback
+- [x] `AppDelegate.swift` — Settings window unresponsive for ~10s on first open; `.accessory` apps never become key by default — fix by switching to `.setActivationPolicy(.regular)` before showing the window and back to `.accessory` on close
 
 ---
 

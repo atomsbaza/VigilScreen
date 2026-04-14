@@ -180,27 +180,20 @@ class PanicModeManager: ObservableObject {
     // MARK: - Notification Center
 
     /// Closes Notification Center so widgets from blocklisted apps are not visible.
-    /// Uses two strategies: hide the NC process, then simulate a background click
-    /// to dismiss the transient panel if it's still showing.
+    /// Uses two strategies: hide the NC process, then send Escape to dismiss the
+    /// transient panel — without moving the cursor.
     private func closeNotificationCenter() {
-        // Strategy 1: hide the Notification Center process
+        // Strategy 1: hide the Notification Center process.
         NSRunningApplication
             .runningApplications(withBundleIdentifier: "com.apple.notificationcenterui")
             .forEach { $0.hide() }
 
-        // Strategy 2: simulate a click at the left-center of the main screen to dismiss the
-        // NC transient panel. The click must be in CG coordinates (origin = top-left of the
-        // primary screen, Y increases downward). screen.frame uses AppKit coordinates where
-        // minY = 0 is the BOTTOM, so passing minY+10 as a CG Y-coordinate lands at y=10 from
-        // the TOP — squarely in the Apple menu, which opens it. Use screen.frame.height / 2
-        // (vertical center) which is safe from both the menu bar and the Dock.
-        guard let src = CGEventSource(stateID: .hidSystemState),
-              let screen = NSScreen.main else { return }
-        let point = CGPoint(x: screen.frame.minX + 10, y: screen.frame.height / 2)
-        CGEvent(mouseEventSource: src, mouseType: .leftMouseDown,
-                mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cgSessionEventTap)
-        CGEvent(mouseEventSource: src, mouseType: .leftMouseUp,
-                mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cgSessionEventTap)
+        // Strategy 2: send Escape to dismiss the NC transient NSPanel.
+        // A keyboard event does not move the cursor, unlike a simulated mouse click.
+        // keyCode 0x35 = Escape.
+        guard let src = CGEventSource(stateID: .hidSystemState) else { return }
+        CGEvent(keyboardEventSource: src, virtualKey: 0x35, keyDown: true)?.post(tap: .cgSessionEventTap)
+        CGEvent(keyboardEventSource: src, virtualKey: 0x35, keyDown: false)?.post(tap: .cgSessionEventTap)
     }
 
     // MARK: - Space Switch Monitoring

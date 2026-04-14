@@ -48,17 +48,14 @@ class PanicModeManager: ObservableObject {
         return win
     }
 
-    /// Shows overlays only on screens that currently have a window belonging to a blocklisted app.
-    /// Falls back to all screens when no specific screens can be identified (e.g. full-screen space).
-    private func showOverlaysForBlocklistedApps() {
-        let screens = screensContainingBlocklistedWindows()
-        let targets = screens.isEmpty ? NSScreen.screens : screens
-        for screen in targets {
+    /// Shows overlays only on the given screens; hides overlays on all others.
+    private func showOverlays(on screens: [NSScreen]) {
+        let targetIDs = Set(screens.map { $0.displayID })
+        for screen in screens {
             overlayWindow(for: screen).orderFrontRegardless()
         }
-        // Hide overlays on screens that no longer need coverage.
-        for screen in NSScreen.screens where !targets.contains(screen) {
-            overlayWindows[screen.displayID]?.orderOut(nil)
+        for (id, win) in overlayWindows where !targetIDs.contains(id) {
+            win.orderOut(nil)
         }
     }
 
@@ -245,25 +242,24 @@ class PanicModeManager: ObservableObject {
         if isAuthenticating { return }
 
         if isBlocklisted(app) {
-            // Bug fix: re-apply hide() so the app doesn't flash during window switches.
-            // For windowed apps hide() already worked, this is a no-op. For full-screen
-            // apps where hide() silently fails, the overlay below catches it.
+            // Re-apply hide() so the app doesn't flash during window switches (⌘Tab, Mission Control).
+            // No-op for windowed apps that are already hidden; catches full-screen apps where
+            // hide() silently fails.
             app.hide()
-            // Show overlays only on screens that contain this app's windows.
-            showOverlaysForBlocklistedApps()
+        }
+
+        // Always recalculate from the live window list.
+        // • Windowed apps hidden by hide() disappear from CGWindowList → screens = [] → overlays hidden.
+        //   This prevents the overlay bleeding into other Spaces/Desktops where no blocklisted app lives.
+        // • Full-screen apps that resisted hide() remain visible → screens = [correct screen] → overlay
+        //   shown only on that screen.
+        // No fallback to "all screens": if nothing is detectable we show nothing, avoiding false
+        // positives on Desktops that have no blocklisted app open.
+        let screens = screensContainingBlocklistedWindows()
+        if screens.isEmpty {
+            hideAllOverlays()
         } else {
-            // Recalculate — other blocklisted apps may still have windows on some screens.
-            let screens = screensContainingBlocklistedWindows()
-            if screens.isEmpty {
-                hideAllOverlays()
-            } else {
-                for screen in screens {
-                    overlayWindow(for: screen).orderFrontRegardless()
-                }
-                for screen in NSScreen.screens where !screens.contains(screen) {
-                    overlayWindows[screen.displayID]?.orderOut(nil)
-                }
-            }
+            showOverlays(on: screens)
         }
     }
 

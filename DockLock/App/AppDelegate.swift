@@ -44,6 +44,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showSettingsWindow() {
+        // Switch to .regular so the window receives focus immediately.
+        // .accessory apps don't become key by default, causing ~10 s input delay.
+        NSApp.setActivationPolicy(.regular)
+
         if let window = settingsWindow, window.isVisible {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -65,7 +69,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow = window
 
         window.makeKeyAndOrderFront(nil)
-        window.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
     }
 }
@@ -76,6 +79,8 @@ extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         if (notification.object as? NSWindow) === settingsWindow {
             settingsWindow = nil
+            // Revert to accessory so the Dock icon disappears when settings is closed.
+            NSApp.setActivationPolicy(.accessory)
         }
     }
 }

@@ -19,6 +19,7 @@ Auto-lock your Mac when you step away from your desk.
 - Smart hysteresis logic prevents false triggers
 - Customizable lock delay (5-30 seconds)
 - Works with Bluetooth or WiFi signal strength
+- **Auto-triggers Panic Mode** before locking — apps stay hidden even if the screen is woken without authentication
 
 ### 🚨 **Panic Mode**
 Hide sensitive apps instantly with one keystroke.
@@ -256,7 +257,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### ✅ v0.1.0 (MVP)
 - Panic Mode with full-screen blur overlay
-- Proximity Lock (Bluetooth)
+- Proximity Lock (Bluetooth) — auto-triggers Panic Mode before locking
 - Local settings
 - First-run onboarding
 - Liquid Glass UI (macOS 26)

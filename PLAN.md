@@ -260,6 +260,7 @@ Settings Window
 - [x] **SettingsView** — uses `@ObservedObject` for `PermissionManager` so permission badge updates live
 - [x] **Panic Mode — full-screen app handling** — black overlay window (`.screenSaver` level, `canJoinAllSpaces + fullScreenAuxiliary`) shown whenever a blocklisted app is frontmost; `hide()` still runs for windowed apps, overlay catches full-screen apps where `hide()` silently fails; monitors `didActivateApplicationNotification` (userInfo app, reliable) + `activeSpaceDidChangeNotification` (0.15s delay fallback)
 - [x] **Panic Mode — auth overlay** — overlay shown immediately on `releasePanic()` before Touch ID prompt so blocklisted apps stay hidden during authentication; `isAuthenticating` flag prevents notification handlers from hiding overlay mid-auth; overlay correctly restored or removed after auth success/cancel
+- [x] **Proximity Lock — auto Panic Mode** — `LockTrigger` calls `PanicModeManager.shared.triggerPanic()` before `LockEngine.lockScreen()`; apps are hidden before the screen locks so they stay hidden even if user wakes screen without authenticating; Touch ID required to release Panic Mode
 - [x] **MenuBarView — UI polish** — extracted body into `header`/`panicButton`/`proximityRow`/`footer` computed vars; tinted button background (`.opacity(0.15)`) instead of `.borderedProminent`; unified padding; footer buttons share modifier stack
 
 ### ✅ Tests

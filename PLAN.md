@@ -326,15 +326,21 @@ Issues found from Apple platform audit — fix before v0.1.0:
 
 ### 🔄 Week 8-10: Release
 
-- [ ] Code signing + notarization
-- [ ] `.dmg` packaging
+**v0.1.0 — Free GitHub Release (no Apple Developer account required)**
+- [ ] `.dmg` packaging (Xcode → Distribute App → Copy App, no signing required)
 - [x] GitHub repo init (`git init`, `main` branch, `.gitignore`)
 - [x] README.md — features, install, architecture, privacy
+- [x] README.md — Gatekeeper disclaimer + `xattr -cr` instructions
 - [x] MIT License
 - [ ] Demo GIF (Screen Recording + Gifski)
-- [ ] CI with GitHub Actions
-- [ ] Homebrew Cask formula
-- [ ] v0.1.0 Public Release
+- [ ] v0.1.0 Public Release on GitHub Releases
+- [ ] Post on r/macapps, Hacker News (Show HN)
+
+**v0.2.0 — Notarized Release (requires $99/yr Apple Developer Program)**
+- [ ] Code signing + notarization
+- [ ] Staple notarization ticket to `.dmg`
+- [ ] CI with GitHub Actions (build + notarize + release)
+- [ ] Homebrew Cask formula (`brew install --cask docklock`)
 
 ---
 

@@ -58,10 +58,16 @@ Native macOS 26 visual design when available.
 
 ### Option 1: Download .dmg (Recommended)
 
+> **Note:** DockLock is not notarized yet. macOS will show a security warning on first launch.
+> To open it, **right-click → Open → Open anyway**, or run in Terminal:
+> ```bash
+> xattr -cr /Applications/DockLock.app
+> ```
+
 1. Download the latest release from [GitHub Releases](https://github.com/atomsbaza/DockLock/releases)
 2. Open `DockLock.dmg`
 3. Drag **DockLock.app** to Applications
-4. Launch from Applications folder
+4. Launch from Applications folder — right-click → Open on first launch
 5. Grant permissions (Bluetooth, Accessibility) when prompted
 
 ### Option 2: Homebrew (Coming Soon)

@@ -8,11 +8,36 @@ struct PanicModeView: View {
     @State private var showAppPicker = false
     @State private var newBundleID = ""
 
+    /// Apps known to provide Notification Center widgets.
+    private let widgetApps: Set<String> = [
+        "com.apple.iCal",           // Calendar
+        "com.apple.Notes",          // Notes
+        "com.apple.reminders",      // Reminders
+        "com.apple.weather",        // Weather
+        "com.apple.stocks",         // Stocks
+        "com.fantastical3.mac",     // Fantastical
+        "com.reeder.5.mac",         // Reeder
+        "com.apple.news",           // News
+    ]
+
     var body: some View {
         Form {
             Section("Behaviour") {
                 Toggle("Require Touch ID to release", isOn: $settings.panicRequiresTouchID)
                 Toggle("Enable ⌘⇧L global shortcut", isOn: $settings.panicShortcutEnabled)
+            }
+
+            // Warn if any blocklisted app is known to have Notification Center widgets
+            if blocklist.bundleIDs.contains(where: { widgetApps.contains($0) }) {
+                Section {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("One or more blocklisted apps may have Notification Center widgets. DockLock will auto-close Notification Center when Panic Mode triggers.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section {

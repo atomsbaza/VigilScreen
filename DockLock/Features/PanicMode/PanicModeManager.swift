@@ -100,6 +100,8 @@ class PanicModeManager: ObservableObject {
         if !isActive {
             LockHistoryStore.shared.record(.panic)
         }
+        // Close Notification Center so blocklisted app widgets are not exposed.
+        closeNotificationCenter()
         hiddenApps = NSWorkspace.shared.runningApplications.filter {
             guard let id = $0.bundleIdentifier else { return false }
             return blocklist.bundleIDs.contains(id) && $0.activationPolicy == .regular
@@ -109,6 +111,29 @@ class PanicModeManager: ObservableObject {
         hiddenApps.forEach { $0.hide() }
         isActive = true
         startMonitoringSpaceSwitches()
+    }
+
+    // MARK: - Notification Center
+
+    /// Closes Notification Center so widgets from blocklisted apps are not visible.
+    /// Uses two strategies: hide the NC process, then simulate a background click
+    /// to dismiss the transient panel if it's still showing.
+    private func closeNotificationCenter() {
+        // Strategy 1: hide the Notification Center process
+        NSRunningApplication
+            .runningApplications(withBundleIdentifier: "com.apple.notificationcenterui")
+            .forEach { $0.hide() }
+
+        // Strategy 2: simulate a click at the top-left of the main screen.
+        // NC is a transient NSPanel — it dismisses on any outside click.
+        // Top-left is safe (no UI elements there) and far from NC (which opens on the right).
+        guard let src = CGEventSource(stateID: .hidSystemState),
+              let screen = NSScreen.main else { return }
+        let point = CGPoint(x: screen.frame.minX + 10, y: screen.frame.minY + 10)
+        CGEvent(mouseEventSource: src, mouseType: .leftMouseDown,
+                mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cgSessionEventTap)
+        CGEvent(mouseEventSource: src, mouseType: .leftMouseUp,
+                mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cgSessionEventTap)
     }
 
     // MARK: - Space Switch Monitoring

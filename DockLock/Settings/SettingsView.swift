@@ -16,6 +16,9 @@ struct SettingsView: View {
                 NavigationLink(destination: ProximityView()) {
                     Label("Proximity Lock", systemImage: "antenna.radiowaves.left.and.right")
                 }
+                NavigationLink(destination: LockHistoryView()) {
+                    Label("History", systemImage: "clock")
+                }
             }
             .navigationTitle("DockLock")
             .listStyle(.sidebar)

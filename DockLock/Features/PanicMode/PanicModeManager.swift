@@ -74,6 +74,10 @@ class PanicModeManager: ObservableObject {
     // MARK: - Panic
 
     func triggerPanic() {
+        // Only record a manual panic event — proximity lock records its own event.
+        if !isActive {
+            LockHistoryStore.shared.record(.panic)
+        }
         hiddenApps = NSWorkspace.shared.runningApplications.filter {
             guard let id = $0.bundleIdentifier else { return false }
             return blocklist.bundleIDs.contains(id) && $0.activationPolicy == .regular

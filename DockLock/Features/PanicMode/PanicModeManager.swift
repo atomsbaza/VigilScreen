@@ -2,6 +2,12 @@ import AppKit
 import LocalAuthentication
 import Combine
 
+private extension NSScreen {
+    var displayID: CGDirectDisplayID {
+        (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+    }
+}
+
 @MainActor
 class PanicModeManager: ObservableObject {
     static let shared = PanicModeManager()
@@ -16,10 +22,16 @@ class PanicModeManager: ObservableObject {
     private let settings = SettingsStore.shared
     private var cancellables = Set<AnyCancellable>()
 
-    // Black overlay shown over full-screen panic apps (where hide() silently fails)
-    // when the user switches to their Space.
-    private lazy var blurOverlayWindow: NSWindow = {
-        let screen = NSScreen.main ?? NSScreen.screens.first ?? NSScreen()
+    // One black overlay per screen — covers full-screen panic apps on all displays.
+    // Keyed by CGDirectDisplayID so we can reuse windows across show/hide cycles.
+    private var overlayWindows: [CGDirectDisplayID: NSWindow] = [:]
+
+    private func overlayWindow(for screen: NSScreen) -> NSWindow {
+        let displayID = screen.displayID
+        if let existing = overlayWindows[displayID] {
+            existing.setFrame(screen.frame, display: false)
+            return existing
+        }
         let win = NSWindow(
             contentRect: screen.frame,
             styleMask: .borderless,
@@ -29,12 +41,22 @@ class PanicModeManager: ObservableObject {
         win.backgroundColor = .black
         win.isOpaque = true
         win.level = .screenSaver
-        // .fullScreenAuxiliary lets the window appear on full-screen app Spaces
         win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         win.ignoresMouseEvents = true
         win.animationBehavior = .none
+        overlayWindows[displayID] = win
         return win
-    }()
+    }
+
+    private func showOverlaysOnAllScreens() {
+        for screen in NSScreen.screens {
+            overlayWindow(for: screen).orderFrontRegardless()
+        }
+    }
+
+    private func hideAllOverlays() {
+        overlayWindows.values.forEach { $0.orderOut(nil) }
+    }
 
     private init() {
         settings.$panicShortcutEnabled
@@ -124,7 +146,7 @@ class PanicModeManager: ObservableObject {
 
     private func updateBlurOverlay(for app: NSRunningApplication) {
         guard isActive else {
-            blurOverlayWindow.orderOut(nil)
+            hideAllOverlays()
             return
         }
         // Keep overlay visible while Touch ID / password prompt is showing.
@@ -133,12 +155,9 @@ class PanicModeManager: ObservableObject {
         // If hide() succeeded (windowed app), it can never become frontmost, so this
         // only fires for full-screen apps where hide() silently failed.
         if isBlocklisted(app) {
-            if let screen = NSScreen.main {
-                blurOverlayWindow.setFrame(screen.frame, display: false)
-            }
-            blurOverlayWindow.orderFrontRegardless()
+            showOverlaysOnAllScreens()
         } else {
-            blurOverlayWindow.orderOut(nil)
+            hideAllOverlays()
         }
     }
 
@@ -147,13 +166,10 @@ class PanicModeManager: ObservableObject {
     func releasePanic() {
         guard isActive else { return }
         if settings.panicRequiresTouchID {
-            // Show overlay immediately so blocklisted apps stay hidden
-            // behind the Touch ID dialog while auth is in progress.
+            // Show overlays on all screens immediately so blocklisted apps stay
+            // hidden behind the Touch ID dialog while auth is in progress.
             isAuthenticating = true
-            if let screen = NSScreen.main {
-                blurOverlayWindow.setFrame(screen.frame, display: false)
-            }
-            blurOverlayWindow.orderFrontRegardless()
+            showOverlaysOnAllScreens()
 
             authenticateWithBiometrics { [weak self] success in
                 guard let self else { return }
@@ -177,7 +193,7 @@ class PanicModeManager: ObservableObject {
         hiddenApps = []
         isAuthenticating = false
         panicCancellables.removeAll()
-        blurOverlayWindow.orderOut(nil)
+        hideAllOverlays()
         isActive = false
     }
 
@@ -186,7 +202,7 @@ class PanicModeManager: ObservableObject {
         hiddenApps = []
         isAuthenticating = false
         panicCancellables.removeAll()
-        blurOverlayWindow.orderOut(nil)
+        hideAllOverlays()
         isActive = false
     }
 

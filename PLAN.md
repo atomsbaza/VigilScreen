@@ -456,7 +456,7 @@ github.com/atomsbaza/DockLock/
 
 ### 🔄 To Do
 
-- **Multi-screen full-screen overlay bug** — when using an external display + built-in screen, the Panic Mode blur overlay only covers one screen. The overlay window is created from `NSScreen.main` only. Fix: create one overlay window per screen (`NSScreen.screens`), show/hide all of them together.
+- ✅ **Multi-screen full-screen overlay bug** — fixed. Replaced single `blurOverlayWindow` with `overlayWindows: [CGDirectDisplayID: NSWindow]`. One overlay per screen, covering all displays simultaneously.
 
 - **Intruder Capture** — take a photo when wrong password entered, saved locally
 - **Shoulder Surfing Detection** — Core ML + Vision framework

@@ -455,13 +455,15 @@ github.com/atomsbaza/DockLock/
 - [x] **Menubar Live Stats** — RSSI and countdown next to menu bar icon, toggle in Settings → General
 - [x] **Multi-screen full-screen overlay** — one overlay per screen via `overlayWindows: [CGDirectDisplayID: NSWindow]`
 - [x] **Settings improvements** — panic test shows apps-to-hide preview; RSSI live pairing UI with signal bars + threshold bar
-- [x] **Widget leak during Panic Mode** — auto-closes Notification Center on panic trigger (hides NC process + simulates outside click); warns in Settings if a blocklisted app has a known Notification Center widget
+- [x] **Widget leak during Panic Mode** — auto-closes Notification Center on panic trigger (hides NC process + sends Escape key); warns in Settings if a blocklisted app has a known Notification Center widget
+- [x] **Hidden app flashes on window switch** — three-layer defence: `didUnhideApplicationNotification` re-hides at the earliest possible moment; `didDeactivateApplicationNotification` shows blur immediately when any app loses focus; ⌘Tab global key monitor shows blur before the App Switcher opens. `didActivateApplicationNotification` clears the blur if the new frontmost app is safe.
+- [x] **External display shows overlay on wrong screen** — `screensContainingBlocklistedWindows()` queries `CGWindowListCopyWindowInfo` and maps window rects to `NSScreen` using correct CG↔AppKit coordinate conversion (`NSScreen.main?.frame.maxY` as reference, `NSDictionary` cast for bounds). Removed fallback-to-all-screens so overlays never bleed into Spaces with no blocklisted app open.
+- [x] **Overlay shows on all Spaces/Desktops** — eliminated fallback that covered every screen when `CGWindowList` returned empty (hidden windowed apps). Overlay is now only shown when a visible blocklisted window is positively identified on a screen.
+- [x] **Clicking Panic Mode opens Apple menu** — `closeNotificationCenter()` was simulating a mouse click at CG `(10, 10)` (top-left = Apple menu). Replaced mouse click with an `Escape` key event which dismisses the NC panel without moving the cursor.
+- [x] **Cursor moves when triggering Panic Mode** — same fix as above; Escape key event leaves cursor position unchanged.
+- [x] **Panic overlay changed from solid black to dark blur** — `NSVisualEffectView` with `.hudWindow` material, `.behindWindow` blending, and `.darkAqua` appearance; content is blurred and darkened rather than completely obscured.
 
 ### 🔄 To Do
-
-**Bugs**
-- [x] **Hidden app flashes on window switch** — re-applies `.hide()` in `didActivateApplicationNotification` when a blocklisted app becomes frontmost, so it's pushed back before the switch animation settles.
-- [x] **External display shows overlay on wrong screen** — `screensContainingBlocklistedWindows()` uses `CGWindowListCopyWindowInfo` to find which screens hold blocklisted app windows; overlays are shown only on those screens and hidden on the rest. Fixed coordinate conversion (use `NSScreen.main?.frame.maxY` as CG reference, not tallest screen's `maxY`). Fixed `kCGWindowBounds` bridge cast (`NSDictionary` not `[String: CGFloat]`). Removed fallback-to-all-screens so overlays never bleed into Spaces with no blocklisted app open.
 
 **Features**
 - [ ] **Notarized release (v0.2.0)** — code signing + notarization, no Gatekeeper warning, Homebrew Cask (`brew install --cask docklock`)

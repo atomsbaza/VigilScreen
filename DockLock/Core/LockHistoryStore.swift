@@ -35,8 +35,8 @@ class LockHistoryStore: ObservableObject {
 
     /// Directory where captured intruder photos are stored.
     static var capturesDirectory: URL {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return support.appendingPathComponent("DockLock/Captures", isDirectory: true)
+        let pictures = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask)[0]
+        return pictures.appendingPathComponent("DockLock Captures", isDirectory: true)
     }
 
     private init() {

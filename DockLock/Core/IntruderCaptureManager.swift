@@ -84,6 +84,10 @@ class IntruderCaptureManager: NSObject, AVCapturePhotoCaptureDelegate {
     nonisolated func photoOutput(_ output: AVCapturePhotoOutput,
                                   didFinishProcessingPhoto photo: AVCapturePhoto,
                                   error: Error?) {
+        // Extract Data here in the nonisolated context — AVCapturePhoto is not Sendable
+        // and cannot be captured by the @MainActor closure below. Data IS Sendable.
+        let photoData: Data? = error == nil ? photo.fileDataRepresentation() : nil
+
         Task { @MainActor in
             defer {
                 self.session?.stopRunning()
@@ -91,8 +95,7 @@ class IntruderCaptureManager: NSObject, AVCapturePhotoCaptureDelegate {
                 self.photoOutput = nil
             }
 
-            guard error == nil,
-                  let data = photo.fileDataRepresentation() else {
+            guard let data = photoData else {
                 self.captureCompletion?(nil)
                 self.captureCompletion = nil
                 return

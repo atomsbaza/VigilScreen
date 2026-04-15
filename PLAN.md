@@ -462,6 +462,8 @@ github.com/atomsbaza/DockLock/
 - [x] **Clicking Panic Mode opens Apple menu** — `closeNotificationCenter()` was simulating a mouse click at CG `(10, 10)` (top-left = Apple menu). Replaced mouse click with an `Escape` key event which dismisses the NC panel without moving the cursor.
 - [x] **Cursor moves when triggering Panic Mode** — same fix as above; Escape key event leaves cursor position unchanged.
 - [x] **Panic overlay changed from solid black to dark blur** — `NSVisualEffectView` with `.hudWindow` material, `.behindWindow` blending, and `.darkAqua` appearance; content is blurred and darkened rather than completely obscured.
+- [x] **Blur overlay too slow to appear** — `prewarmOverlays()` called in `triggerPanic()` creates all overlay windows and orders them front at `alphaValue=0` so the GPU initialises the blur pipeline immediately. Show/hide is then an instant `alphaValue = 1/0` flip; `dismissAllOverlays()` calls `orderOut()` only on full release.
+- [x] **No visible way to remove apps from blocklist** — `BlocklistRow` now shows a red `minus.circle.fill` button on hover. Clicking removes the entry. Keyboard Delete via `.onDelete` is kept as a secondary path.
 
 ### 🔄 To Do
 

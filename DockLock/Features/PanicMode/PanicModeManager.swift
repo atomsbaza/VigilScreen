@@ -384,17 +384,19 @@ class PanicModeManager: ObservableObject {
     private func authenticateWithBiometrics(completion: @MainActor @escaping (Bool) -> Void) {
         let context = LAContext()
         var error: NSError?
-        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock DockLock Panic Mode") { success, _ in
-                Task { @MainActor in completion(success) }
+        let policy: LAPolicy = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+            ? .deviceOwnerAuthenticationWithBiometrics
+            : .deviceOwnerAuthentication
+        context.evaluatePolicy(policy, localizedReason: "Unlock DockLock Panic Mode") { success, authError in
+            Task { @MainActor in
+                if !success, let err = authError as? LAError, err.code == .authenticationFailed {
+                    // Wrong biometric or wrong password — capture the intruder.
+                    IntruderCaptureManager.shared.capturePhoto { filename in
+                        LockHistoryStore.shared.record(.intruderCapture, photoFilename: filename)
+                    }
+                }
+                completion(success)
             }
-            return
-        }
-        context.evaluatePolicy(
-            .deviceOwnerAuthenticationWithBiometrics,
-            localizedReason: "Unlock DockLock Panic Mode"
-        ) { success, _ in
-            Task { @MainActor in completion(success) }
         }
     }
 

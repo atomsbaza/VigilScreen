@@ -326,6 +326,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "DockLock uses Bluetooth to detect when you leave your Mac and lock the screen automatically.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "DockLock uses the camera to photograph anyone who fails to unlock Panic Mode, so you can identify unauthorised access attempts.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Pisit Koolplukpol";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -360,6 +361,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "DockLock uses Bluetooth to detect when you leave your Mac and lock the screen automatically.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "DockLock uses the camera to photograph anyone who fails to unlock Panic Mode, so you can identify unauthorised access attempts.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Pisit Koolplukpol";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

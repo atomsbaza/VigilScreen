@@ -6,6 +6,10 @@
     <key>com.apple.security.device.bluetooth</key>
     <true/>
 
+    <!-- Required for Intruder Capture (hardened runtime camera access) -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
+
     <!-- Required for Panic Mode global keyboard shortcut -->
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
     <false/>

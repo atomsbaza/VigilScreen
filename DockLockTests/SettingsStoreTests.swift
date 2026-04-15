@@ -2,71 +2,58 @@ import XCTest
 @testable import DockLock
 
 /// Tests for SettingsStore default values and UserDefaults persistence.
-@MainActor
 final class SettingsStoreTests: XCTestCase {
-
-    private let store = SettingsStore.shared
 
     // MARK: - Default values
 
-    /// launchAtLogin defaults to false (no explicit default set → bool returns false)
-    func testLaunchAtLogin_defaultFalse() {
-        // Only meaningful when UserDefaults has no value; the singleton may have been
-        // initialized earlier, so we validate the type/range rather than the exact value.
-        XCTAssertNotNil(store.launchAtLogin)  // Bool is always non-nil
+    @MainActor func testLaunchAtLogin_defaultFalse() {
+        XCTAssertNotNil(SettingsStore.shared.launchAtLogin)
     }
 
-    func testPanicShortcutEnabled_defaultTrue() {
-        // The code defaults to true when UserDefaults has no stored value.
-        // After first run the persisted value may differ; we just assert it's a Bool.
-        let _ = store.panicShortcutEnabled
+    @MainActor func testPanicShortcutEnabled_defaultTrue() {
+        let _ = SettingsStore.shared.panicShortcutEnabled
     }
 
-    func testProximityLockDelay_inRange() {
-        // Default is 10.0; slider range is 5–30.
-        let delay = store.proximityLockDelay
+    @MainActor func testProximityLockDelay_inRange() {
+        let delay = SettingsStore.shared.proximityLockDelay
         XCTAssertGreaterThanOrEqual(delay, 5.0)
         XCTAssertLessThanOrEqual(delay, 30.0)
     }
 
-    func testProximityRSSIThreshold_inRange() {
-        // Default is -75; slider range is -60 to -90.
-        let threshold = store.proximityRSSIThreshold
+    @MainActor func testProximityRSSIThreshold_inRange() {
+        let threshold = SettingsStore.shared.proximityRSSIThreshold
         XCTAssertGreaterThanOrEqual(threshold, -90.0)
         XCTAssertLessThanOrEqual(threshold, -60.0)
     }
 
     // MARK: - Persistence round-trip
 
-    func testProximityLockDelay_persists() {
-        let original = store.proximityLockDelay
+    @MainActor func testProximityLockDelay_persists() {
+        let original = SettingsStore.shared.proximityLockDelay
         let newValue = 15.0
-        store.proximityLockDelay = newValue
+        SettingsStore.shared.proximityLockDelay = newValue
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         let saved = UserDefaults.standard.object(forKey: "proximityLockDelay") as? Double
         XCTAssertEqual(saved, newValue)
-        // Restore
-        store.proximityLockDelay = original
+        SettingsStore.shared.proximityLockDelay = original
     }
 
-    func testProximityRSSIThreshold_persists() {
-        let original = store.proximityRSSIThreshold
+    @MainActor func testProximityRSSIThreshold_persists() {
+        let original = SettingsStore.shared.proximityRSSIThreshold
         let newValue = -80.0
-        store.proximityRSSIThreshold = newValue
+        SettingsStore.shared.proximityRSSIThreshold = newValue
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         let saved = UserDefaults.standard.object(forKey: "proximityRSSIThreshold") as? Double
         XCTAssertEqual(saved, newValue)
-        // Restore
-        store.proximityRSSIThreshold = original
+        SettingsStore.shared.proximityRSSIThreshold = original
     }
 
-    func testProximityLockEnabled_persists() {
-        let original = store.proximityLockEnabled
-        store.proximityLockEnabled = !original
+    @MainActor func testProximityLockEnabled_persists() {
+        let original = SettingsStore.shared.proximityLockEnabled
+        SettingsStore.shared.proximityLockEnabled = !original
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         let saved = UserDefaults.standard.object(forKey: "proximityLockEnabled") as? Bool
         XCTAssertEqual(saved, !original)
-        // Restore
-        store.proximityLockEnabled = original
+        SettingsStore.shared.proximityLockEnabled = original
     }
 }

@@ -22,11 +22,11 @@ Auto-lock your Mac when you step away from your desk.
 - **Auto-triggers Panic Mode** before locking — apps stay hidden even if the screen is woken without authentication
 
 ### 🚨 **Panic Mode**
-Hide sensitive apps instantly with one keystroke.
-- Single hotkey (default: `⌘+Shift+L`) hides Terminal, IDE, browsers, Slack, etc.
-- Customizable blocklist — choose which apps to protect
+Blur everything instantly with one keystroke — only your trusted apps stay visible.
+- Single hotkey (default: `⌘+Shift+L`) blurs all screens immediately and hides non-safelisted apps
+- **Safelist model**: apps you trust (Terminal, IDE, browsers, etc.) remain visible and interactive above the blur; everything else vanishes
+- No flash, no polling — blur appears on all screens in a single frame
 - Release with Touch ID for added security
-- Hides even full-screen applications
 
 ### 🎉 **First-Run Onboarding**
 Get set up in seconds with a guided welcome checklist.
@@ -105,8 +105,8 @@ open DockLock.xcodeproj
 ### 2. **Set Up Panic Mode**
 
 1. Go to **Panic Mode** tab
-2. Check apps you want to hide (default: Terminal, Xcode, VS Code, Safari, Chrome, Slack, Notion)
-3. Add more apps by clicking **+** and selecting from running apps
+2. Review the **App Safelist** — apps in this list stay visible above the blur (default: Terminal, Xcode, VS Code, Safari, Chrome, Slack, Notion)
+3. Add trusted apps by clicking **+** and selecting from running apps, or remove ones you don't need
 4. Customize keyboard shortcut (default: `⌘+Shift+L`)
 5. Toggle **Require Touch ID to release** for extra security
 
@@ -132,8 +132,8 @@ DockLock/
 │
 ├── Features/
 │   ├── PanicMode/
-│   │   ├── PanicModeManager.swift # Hide/unhide app logic (@MainActor)
-│   │   ├── AppBlocklist.swift     # Managed list of apps to hide
+│   │   ├── PanicModeManager.swift # Blur/unhide logic (@MainActor)
+│   │   ├── AppBlocklist.swift     # Safelist — apps that stay visible during panic
 │   │   └── PanicModeView.swift    # Settings UI
 │   │
 │   └── ProximityLock/
@@ -205,8 +205,8 @@ A: Currently no — MVP focuses on single-Mac setup. iCloud Sync is planned for 
 **Q: What if my iPhone is out of battery?**
 A: Proximity Lock won't trigger. Panic Mode still works independently.
 
-**Q: Can I hide custom apps?**
-A: Yes! Click **+** in Panic Mode settings and select from running apps.
+**Q: Which apps stay visible during Panic Mode?**
+A: Only apps in your **Safelist** remain visible above the blur (default: Terminal, Xcode, VS Code, Safari, Chrome, Slack, Notion). Everything else is hidden. Add or remove apps in Panic Mode settings.
 
 **Q: Is my data safe?**
 A: Completely safe. All processing is local. No cloud, no analytics, no telemetry. It's open source — audit the code yourself.
@@ -256,7 +256,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Roadmap
 
 ### ✅ v0.1.0 (MVP)
-- Panic Mode with full-screen blur overlay
+- Panic Mode — instant full-screen blur on all screens, safelist keeps trusted apps visible
 - Proximity Lock (Bluetooth) — auto-triggers Panic Mode before locking
 - Local settings
 - First-run onboarding

@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import AppKit
 
 /// Captures a still photo from the front-facing (FaceTime) camera when an
@@ -68,14 +68,21 @@ class IntruderCaptureManager: NSObject, AVCapturePhotoCaptureDelegate {
         self.session = session
         self.photoOutput = output
 
-        session.startRunning()
-
-        // Brief delay so the sensor can adjust exposure before capturing.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            guard let self, session.isRunning else { completion(nil); return }
-            let settings = AVCapturePhotoSettings()
-            settings.flashMode = .off
-            output.capturePhoto(with: settings, delegate: self)
+        // startRunning() must NOT be called on the main thread — it blocks until the
+        // session is ready and will cause a runtime warning (or silent failure) if
+        // invoked from a @MainActor context. Dispatch to a background queue instead.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            session.startRunning()
+            // Brief delay so the sensor can adjust exposure before capturing.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self, session.isRunning else {
+                    Task { @MainActor in completion(nil) }
+                    return
+                }
+                let settings = AVCapturePhotoSettings()
+                settings.flashMode = .off
+                output.capturePhoto(with: settings, delegate: self)
+            }
         }
     }
 

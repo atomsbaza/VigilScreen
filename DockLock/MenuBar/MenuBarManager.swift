@@ -55,9 +55,9 @@ class MenuBarManager {
         // Resize the popover when the user dismisses the welcome screen.
         NotificationCenter.default
             .publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: DispatchQueue.main)
             .map { _ in UserDefaults.standard.bool(forKey: "hasShownWelcome") }
             .removeDuplicates()
-            .receive(on: RunLoop.main)
             .sink { [weak self] hasShown in
                 guard let self, hasShown else { return }
                 let size = NSSize(width: 280, height: Self.mainHeight)
@@ -77,7 +77,7 @@ class MenuBarManager {
             BluetoothMonitor.shared.$isDeviceVisible,
             LockTrigger.shared.$secondsRemaining
         )
-        .receive(on: RunLoop.main)
+        .receive(on: DispatchQueue.main)
         .sink { [weak self] showStats, rssi, visible, seconds in
             self?.updateMenuBarTitle(
                 showStats: showStats,
@@ -107,7 +107,7 @@ class MenuBarManager {
 
     private func observePanicState() {
         PanicModeManager.shared.$isActive
-            .receive(on: RunLoop.main)
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] isActive in
                 self?.updateIcon(panicActive: isActive)
             }

@@ -4,7 +4,7 @@ struct WelcomeView: View {
     @AppStorage("hasShownWelcome") private var hasShownWelcome = false
     @ObservedObject private var permissions = PermissionManager.shared
     @ObservedObject private var monitor = BluetoothMonitor.shared
-    @ObservedObject private var blocklist = AppBlocklist.shared
+    @ObservedObject private var safelist = AppSafelist.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,8 +53,8 @@ struct WelcomeView: View {
             )
             Divider().padding(.leading, 38)
             SetupStepRow(
-                title: "App Blocklist Ready",
-                detail: "\(blocklist.bundleIDs.count) apps protected by default",
+                title: "App Safelist Ready",
+                detail: "\(safelist.bundleIDs.count) apps visible by default",
                 isDone: true
             )
         }

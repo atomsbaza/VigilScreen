@@ -2,72 +2,66 @@ import XCTest
 @testable import DockLock
 
 /// Tests for BluetoothMonitor — pure logic that does not require hardware.
-@MainActor
 final class BluetoothMonitorTests: XCTestCase {
 
-    private let monitor = BluetoothMonitor.shared
-
     override func tearDown() {
-        // Restore clean state after each test
-        if monitor.pairedDeviceUUID != nil {
-            monitor.unpair()
+        MainActor.assumeIsolated {
+            if BluetoothMonitor.shared.pairedDeviceUUID != nil {
+                BluetoothMonitor.shared.unpair()
+            }
         }
         super.tearDown()
     }
 
     // MARK: - Initial state
 
-    func testInitialRSSI_isZero() {
-        monitor.unpair()
-        XCTAssertEqual(monitor.currentRSSI, 0)
+    @MainActor func testInitialRSSI_isZero() {
+        BluetoothMonitor.shared.unpair()
+        XCTAssertEqual(BluetoothMonitor.shared.currentRSSI, 0)
     }
 
-    func testInitialIsDeviceVisible_falseAfterUnpair() {
-        monitor.unpair()
-        XCTAssertFalse(monitor.isDeviceVisible)
+    @MainActor func testInitialIsDeviceVisible_falseAfterUnpair() {
+        BluetoothMonitor.shared.unpair()
+        XCTAssertFalse(BluetoothMonitor.shared.isDeviceVisible)
     }
 
-    func testInitialNearbyDevices_isEmpty() {
-        // nearbyDevices is reset by startDiscoveryScan, but starts empty unless a scan ran.
-        // We don't start a scan here (no BT hardware), just verify the array type.
-        XCTAssertNotNil(monitor.nearbyDevices)
+    @MainActor func testInitialNearbyDevices_isEmpty() {
+        XCTAssertNotNil(BluetoothMonitor.shared.nearbyDevices)
     }
 
     // MARK: - Unpair clears state
 
-    func testUnpair_clearsPairedUUID() {
-        monitor.unpair()
-        XCTAssertNil(monitor.pairedDeviceUUID)
+    @MainActor func testUnpair_clearsPairedUUID() {
+        BluetoothMonitor.shared.unpair()
+        XCTAssertNil(BluetoothMonitor.shared.pairedDeviceUUID)
     }
 
-    func testUnpair_clearsPairedName() {
-        monitor.unpair()
-        XCTAssertNil(monitor.pairedDeviceName)
+    @MainActor func testUnpair_clearsPairedName() {
+        BluetoothMonitor.shared.unpair()
+        XCTAssertNil(BluetoothMonitor.shared.pairedDeviceName)
     }
 
-    func testUnpair_resetsRSSI() {
-        monitor.unpair()
-        XCTAssertEqual(monitor.currentRSSI, 0)
+    @MainActor func testUnpair_resetsRSSI() {
+        BluetoothMonitor.shared.unpair()
+        XCTAssertEqual(BluetoothMonitor.shared.currentRSSI, 0)
     }
 
-    func testUnpair_setsDeviceInvisible() {
-        monitor.unpair()
-        XCTAssertFalse(monitor.isDeviceVisible)
+    @MainActor func testUnpair_setsDeviceInvisible() {
+        BluetoothMonitor.shared.unpair()
+        XCTAssertFalse(BluetoothMonitor.shared.isDeviceVisible)
     }
 
     // MARK: - Presence timer
 
-    func testStopPresenceTimer_setsDeviceInvisible() {
-        monitor.startPresenceTimer()
-        monitor.stopPresenceTimer()
-        XCTAssertFalse(monitor.isDeviceVisible)
+    @MainActor func testStopPresenceTimer_setsDeviceInvisible() {
+        BluetoothMonitor.shared.startPresenceTimer()
+        BluetoothMonitor.shared.stopPresenceTimer()
+        XCTAssertFalse(BluetoothMonitor.shared.isDeviceVisible)
     }
 
-    func testStartMonitoringScan_requiresPairedDevice() {
-        monitor.unpair()
-        // Without a paired device, startMonitoringScan() is a no-op.
-        // We verify it doesn't crash and state is unchanged.
-        monitor.startMonitoringScan()
-        XCTAssertNil(monitor.pairedDeviceUUID)
+    @MainActor func testStartMonitoringScan_requiresPairedDevice() {
+        BluetoothMonitor.shared.unpair()
+        BluetoothMonitor.shared.startMonitoringScan()
+        XCTAssertNil(BluetoothMonitor.shared.pairedDeviceUUID)
     }
 }

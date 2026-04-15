@@ -2,23 +2,11 @@ import SwiftUI
 import AppKit
 
 struct PanicModeView: View {
-    @ObservedObject private var blocklist = AppBlocklist.shared
+    @ObservedObject private var safelist = AppSafelist.shared
     @ObservedObject private var settings = SettingsStore.shared
     @ObservedObject private var manager = PanicModeManager.shared
     @State private var showAppPicker = false
     @State private var newBundleID = ""
-
-    /// Apps known to provide Notification Center widgets.
-    private let widgetApps: Set<String> = [
-        "com.apple.iCal",           // Calendar
-        "com.apple.Notes",          // Notes
-        "com.apple.reminders",      // Reminders
-        "com.apple.weather",        // Weather
-        "com.apple.stocks",         // Stocks
-        "com.fantastical3.mac",     // Fantastical
-        "com.reeder.5.mac",         // Reeder
-        "com.apple.news",           // News
-    ]
 
     var body: some View {
         Form {
@@ -27,24 +15,11 @@ struct PanicModeView: View {
                 Toggle("Enable ⌘⇧L global shortcut", isOn: $settings.panicShortcutEnabled)
             }
 
-            // Warn if any blocklisted app is known to have Notification Center widgets
-            if blocklist.bundleIDs.contains(where: { widgetApps.contains($0) }) {
-                Section {
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                        Text("One or more blocklisted apps may have Notification Center widgets. DockLock will auto-close Notification Center when Panic Mode triggers.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
             Section {
-                // Preview: how many apps will be hidden
+                // Preview: how many apps will be hidden (all regular apps not in the safelist)
                 let appsToHide = NSWorkspace.shared.runningApplications.filter {
                     guard let id = $0.bundleIdentifier else { return false }
-                    return blocklist.bundleIDs.contains(id) && $0.activationPolicy == .regular
+                    return !safelist.bundleIDs.contains(id) && $0.activationPolicy == .regular
                 }
                 if !manager.isActive && !appsToHide.isEmpty {
                     HStack(spacing: 6) {
@@ -78,19 +53,19 @@ struct PanicModeView: View {
             }
 
             Section {
-                let ids = blocklist.bundleIDs.sorted()
+                let ids = safelist.bundleIDs.sorted()
                 if ids.isEmpty {
-                    Text("No apps in blocklist")
+                    Text("No apps in safelist")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(ids, id: \.self) { id in
-                        BlocklistRow(bundleID: id) {
-                            blocklist.remove(id)
+                        SafelistRow(bundleID: id) {
+                            safelist.remove(id)
                         }
                     }
                     .onDelete { indexSet in
                         let sorted = ids
-                        indexSet.forEach { blocklist.remove(sorted[$0]) }
+                        indexSet.forEach { safelist.remove(sorted[$0]) }
                     }
                 }
 
@@ -103,25 +78,25 @@ struct PanicModeView: View {
                 }
             } header: {
                 HStack {
-                    Text("App Blocklist")
+                    Text("App Safelist")
                     Spacer()
                     Button {
-                        blocklist.importFromFile()
+                        safelist.importFromFile()
                     } label: {
                         Label("Import", systemImage: "square.and.arrow.down")
                             .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.plain)
-                    .help("Import blocklist from JSON file")
+                    .help("Import safelist from JSON file")
 
                     Button {
-                        blocklist.exportToFile()
+                        safelist.exportToFile()
                     } label: {
                         Label("Export", systemImage: "square.and.arrow.up")
                             .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.plain)
-                    .help("Export blocklist to JSON file")
+                    .help("Export safelist to JSON file")
 
                     Button {
                         showAppPicker = true
@@ -144,14 +119,14 @@ struct PanicModeView: View {
     private func addManual() {
         let trimmed = newBundleID.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        blocklist.add(trimmed)
+        safelist.add(trimmed)
         newBundleID = ""
     }
 }
 
-// MARK: - Blocklist row with app icon + name
+// MARK: - Safelist row with app icon + name
 
-private struct BlocklistRow: View {
+private struct SafelistRow: View {
     let bundleID: String
     let onRemove: () -> Void
 
@@ -191,7 +166,7 @@ private struct BlocklistRow: View {
             }
             .buttonStyle(.plain)
             .opacity(isHovering ? 1 : 0)
-            .help("Remove from blocklist")
+            .help("Remove from safelist")
         }
         .onHover { isHovering = $0 }
     }
@@ -201,14 +176,14 @@ private struct BlocklistRow: View {
 
 private struct RunningAppPickerSheet: View {
     @Binding var isPresented: Bool
-    @ObservedObject private var blocklist = AppBlocklist.shared
+    @ObservedObject private var safelist = AppSafelist.shared
 
     private var candidates: [NSRunningApplication] {
         NSWorkspace.shared.runningApplications
             .filter { app in
                 app.activationPolicy == .regular &&
                 app.bundleIdentifier != nil &&
-                !blocklist.bundleIDs.contains(app.bundleIdentifier!)
+                !safelist.bundleIDs.contains(app.bundleIdentifier!)
             }
             .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
     }
@@ -216,7 +191,7 @@ private struct RunningAppPickerSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Running Apps")
+                Text("Add to Safelist")
                     .font(.headline)
                 Spacer()
                 Button("Done") { isPresented = false }
@@ -226,7 +201,7 @@ private struct RunningAppPickerSheet: View {
             Divider()
 
             if candidates.isEmpty {
-                Text("All running apps are already in the blocklist.")
+                Text("All running apps are already in the safelist.")
                     .foregroundStyle(.secondary)
                     .padding()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -247,7 +222,7 @@ private struct RunningAppPickerSheet: View {
                         Spacer()
                         Button("Add") {
                             if let id = app.bundleIdentifier {
-                                blocklist.add(id)
+                                safelist.add(id)
                             }
                         }
                         .buttonStyle(.bordered)

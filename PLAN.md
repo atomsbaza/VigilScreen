@@ -74,7 +74,7 @@ DockLock/
 ├── Features/
 │   ├── PanicMode/
 │   │   ├── PanicModeManager.swift # Logic: hide/blur apps
-│   │   ├── AppBlocklist.swift     # รายชื่อแอปที่ต้องซ่อน
+│   │   ├── AppBlocklist.swift     # รายชื่อแอปที่ยังคงมองเห็นได้ระหว่าง Panic (Safelist)
 │   │   └── PanicModeView.swift    # Settings UI
 │   │
 │   └── ProximityLock/
@@ -227,9 +227,9 @@ Settings Window
 
 ### ✅ Week 3-4: Panic Mode
 
-- [x] `AppBlocklist.swift` — persisted `Set<String>`, default list (Terminal, Xcode, VSCode, Safari, Chrome, Slack, Notion)
+- [x] `AppBlocklist.swift` (renamed class to `AppSafelist`) — persisted `Set<String>`, default list (Terminal, Xcode, VSCode, Safari, Chrome, Slack, Notion)
 - [x] `PanicModeManager.swift` — hide/unhide via `NSRunningApplication`, Touch ID + password fallback, live shortcut toggle
-- [x] `PanicModeView.swift` — settings UI with blocklist editor, running app picker sheet, test button
+- [x] `PanicModeView.swift` — settings UI with safelist editor, running app picker sheet, test button
 - [x] Global shortcut `⌘⇧L` via `NSEvent.addGlobalMonitorForEvents` — registered/unregistered live on toggle
 
 ### ✅ Week 5-6: Proximity Lock — Bluetooth scan + RSSI monitoring
@@ -464,6 +464,8 @@ github.com/atomsbaza/DockLock/
 - [x] **Panic overlay changed from solid black to dark blur** — `NSVisualEffectView` with `.hudWindow` material, `.behindWindow` blending, and `.darkAqua` appearance; content is blurred and darkened rather than completely obscured.
 - [x] **Blur overlay too slow to appear** — `prewarmOverlays()` called in `triggerPanic()` creates all overlay windows and orders them front at `alphaValue=0` so the GPU initialises the blur pipeline immediately. Show/hide is then an instant `alphaValue = 1/0` flip; `dismissAllOverlays()` calls `orderOut()` only on full release.
 - [x] **No visible way to remove apps from blocklist** — `BlocklistRow` now shows a red `minus.circle.fill` button on hover. Clicking removes the entry. Keyboard Delete via `.onDelete` is kept as a secondary path.
+- [x] **Desktop flash on Panic Mode trigger** — root cause was the `detectAndShowOverlay()` polling loop dynamically showing/hiding overlays based on `CGWindowListCopyWindowInfo` scans. Eliminated entirely by switching to the safelist model (see below).
+- [x] **Panic Mode redesign: Safelist model** — fundamental redesign from "blocklist" (hide specific apps) to "safelist" (blur everything, keep listed apps visible). Blur overlay now shows on **all screens immediately** on panic trigger (`showOverlaysOnAllScreens()`) — no polling, no flash. Overlay window level changed from `.screenSaver` → `-1` (below normal level 0) so safelisted apps float above the blur unaffected. All non-safelisted regular apps are hidden via `hide()`. Removed `screensContainingBlocklistedWindows()`, `detectAndShowOverlay()`, `appSwitchMonitor`, `activeSpaceDidChangeNotification` subscriber, `isSpaceTransitioning`, `overlayDetectionTask` — code is significantly simpler.
 
 ### 🔄 To Do
 

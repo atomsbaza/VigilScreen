@@ -62,24 +62,40 @@ class PanicModeManager: ObservableObject {
         return win
     }
 
+    /// Pre-warms overlay windows for every connected screen.
+    /// Creates the NSWindow + NSVisualEffectView and orders them front at alphaValue=0
+    /// so the GPU initialises the blur pipeline immediately. Subsequent show/hide is
+    /// then just an alphaValue flip — no window-creation or blur warm-up delay.
+    private func prewarmOverlays() {
+        for screen in NSScreen.screens {
+            let win = overlayWindow(for: screen)
+            win.alphaValue = 0
+            win.orderFrontRegardless()
+        }
+    }
+
     /// Shows overlays only on the given screens; hides overlays on all others.
     private func showOverlays(on screens: [NSScreen]) {
         let targetIDs = Set(screens.map { $0.displayID })
         for screen in screens {
-            overlayWindow(for: screen).orderFrontRegardless()
+            overlayWindow(for: screen).alphaValue = 1
         }
         for (id, win) in overlayWindows where !targetIDs.contains(id) {
-            win.orderOut(nil)
+            win.alphaValue = 0
         }
     }
 
     private func showOverlaysOnAllScreens() {
         for screen in NSScreen.screens {
-            overlayWindow(for: screen).orderFrontRegardless()
+            overlayWindow(for: screen).alphaValue = 1
         }
     }
 
     private func hideAllOverlays() {
+        overlayWindows.values.forEach { $0.alphaValue = 0 }
+    }
+
+    private func dismissAllOverlays() {
         overlayWindows.values.forEach { $0.orderOut(nil) }
     }
 
@@ -188,6 +204,10 @@ class PanicModeManager: ObservableObject {
         // For full-screen apps hide() silently fails — the overlay catches those below.
         hiddenApps.forEach { $0.hide() }
         isActive = true
+        // Pre-warm blur overlays now so the GPU has the blur pipeline ready.
+        // When a full-screen app needs coverage or a window-switch flash needs suppressing,
+        // showing the overlay is then an instant alphaValue flip rather than a cold render.
+        prewarmOverlays()
         startMonitoringSpaceSwitches()
     }
 
@@ -338,7 +358,7 @@ class PanicModeManager: ObservableObject {
         isAuthenticating = false
         panicCancellables.removeAll()
         stopAppSwitchMonitor()
-        hideAllOverlays()
+        dismissAllOverlays()
         isActive = false
     }
 
@@ -348,7 +368,7 @@ class PanicModeManager: ObservableObject {
         isAuthenticating = false
         panicCancellables.removeAll()
         stopAppSwitchMonitor()
-        hideAllOverlays()
+        dismissAllOverlays()
         isActive = false
     }
 

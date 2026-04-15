@@ -18,6 +18,7 @@ class PanicModeManager: ObservableObject {
     private var isAuthenticating = false
     private var panicCancellables = Set<AnyCancellable>()
     private var shortcutMonitor: Any?
+    private var appSwitchMonitor: Any?
     private let blocklist = AppBlocklist.shared
     private let settings = SettingsStore.shared
     private var cancellables = Set<AnyCancellable>()
@@ -214,9 +215,32 @@ class PanicModeManager: ObservableObject {
     private func startMonitoringSpaceSwitches() {
         let center = NSWorkspace.shared.notificationCenter
 
+        // PROACTIVE: cover the screen before any transition animation starts.
+        //
+        // didDeactivateApplicationNotification fires the instant the current app loses
+        // focus — before the next app's window begins to appear. We show blur on all
+        // screens here so there is no gap between "app A gone" and "overlay visible".
+        center.publisher(for: NSWorkspace.didDeactivateApplicationNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, self.isActive, !self.isAuthenticating,
+                      !self.hiddenApps.isEmpty else { return }
+                self.showOverlaysOnAllScreens()
+            }
+            .store(in: &panicCancellables)
+
+        // ⌘Tab global monitor: show blur the moment the user presses ⌘Tab so the
+        // App Switcher overlay itself is blurred and the selected app can't flash.
+        appSwitchMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.isActive, !self.isAuthenticating,
+                  !self.hiddenApps.isEmpty else { return }
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard flags == .command, event.keyCode == 48 /* Tab */ else { return }
+            self.showOverlaysOnAllScreens()
+        }
+
         // ⌘Tab / clicking a Dock icon unhides the app BEFORE activating it.
-        // didUnhideApplicationNotification fires at that earlier moment, giving us a
-        // chance to re-hide the app before its window ever appears on screen.
+        // Re-hide immediately at the unhide step as a further safeguard.
         center.publisher(for: NSWorkspace.didUnhideApplicationNotification)
             .receive(on: DispatchQueue.main)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
@@ -224,8 +248,8 @@ class PanicModeManager: ObservableObject {
             .sink { app in app.hide() }
             .store(in: &panicCancellables)
 
-        // didActivateApplicationNotification is a second line of defence for cases where
-        // the app becomes frontmost without a prior unhide event (e.g. full-screen apps).
+        // didActivateApplicationNotification: re-evaluate once the new app is settled.
+        // Hides the preemptive overlay if the new frontmost app is not blocklisted.
         center.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .receive(on: DispatchQueue.main)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
@@ -313,6 +337,7 @@ class PanicModeManager: ObservableObject {
         hiddenApps = []
         isAuthenticating = false
         panicCancellables.removeAll()
+        stopAppSwitchMonitor()
         hideAllOverlays()
         isActive = false
     }
@@ -322,8 +347,16 @@ class PanicModeManager: ObservableObject {
         hiddenApps = []
         isAuthenticating = false
         panicCancellables.removeAll()
+        stopAppSwitchMonitor()
         hideAllOverlays()
         isActive = false
+    }
+
+    private func stopAppSwitchMonitor() {
+        if let monitor = appSwitchMonitor {
+            NSEvent.removeMonitor(monitor)
+            appSwitchMonitor = nil
+        }
     }
 
     // MARK: - Biometrics

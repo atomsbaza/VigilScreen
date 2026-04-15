@@ -38,12 +38,25 @@ class PanicModeManager: ObservableObject {
             backing: .buffered,
             defer: false
         )
-        win.backgroundColor = .black
-        win.isOpaque = true
+        win.isOpaque = false
+        win.backgroundColor = .clear
         win.level = .screenSaver
         win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         win.ignoresMouseEvents = true
         win.animationBehavior = .none
+
+        // Blur + darken whatever is on screen rather than covering with solid black.
+        // NSVisualEffectView with .behindWindow blending blurs content rendered below
+        // this window in the compositor. .hudWindow on darkAqua appearance gives a
+        // heavy dark blur that makes underlying content unreadable.
+        let blur = NSVisualEffectView(frame: NSRect(origin: .zero, size: screen.frame.size))
+        blur.material = .hudWindow
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        blur.appearance = NSAppearance(named: .darkAqua)
+        blur.autoresizingMask = [.width, .height]
+        win.contentView = blur
+
         overlayWindows[displayID] = win
         return win
     }

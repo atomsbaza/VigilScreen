@@ -470,6 +470,70 @@ github.com/atomsbaza/DockLock/
 **Features**
 - [ ] **Notarized release (v0.2.0)** — code signing + notarization, no Gatekeeper warning, Homebrew Cask (`brew install --cask docklock`)
 - [ ] **Intruder Capture** — photo taken on wrong password, saved locally, shown in History
+
+  #### Intruder Capture — Detailed Plan
+
+  **Trigger**: Failed biometric/password attempt when releasing Panic Mode.
+  Only capture on `LAError.authenticationFailed` (wrong fingerprint/face/password).
+  Do NOT capture on `LAError.userCancel`, `LAError.systemCancel`, or `LAError.userFallback` — those are deliberate user actions, not intrusion attempts.
+
+  **Files to create / modify**:
+
+  | File | Change |
+  |---|---|
+  | `Core/IntruderCaptureManager.swift` | New — AVCaptureSession wrapper, photo save/load |
+  | `Core/LockHistoryStore.swift` | Add `photoFilename: String?` to `LockEvent`; add `.intruderCapture` trigger type |
+  | `Features/History/LockHistoryView.swift` | Show photo thumbnail in intruder rows; tap to enlarge |
+  | `Features/PanicMode/PanicModeManager.swift` | Call capture on auth failure in `authenticateWithBiometrics` |
+  | `DockLock.entitlements` | Add `com.apple.security.device.camera` |
+  | `Info.plist` | Add `NSCameraUsageDescription` |
+
+  **`IntruderCaptureManager.swift`**:
+  ```
+  - AVCaptureSession with AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front)
+  - AVCapturePhotoOutput for still capture
+  - capturePhoto() → saves JPEG to ~/Library/Application Support/DockLock/Captures/<uuid>.jpg
+  - deletePhoto(filename:) — for when user clears history
+  - isAvailable: Bool — camera permission granted and hardware present
+  ```
+
+  **`LockHistoryStore` changes**:
+  ```swift
+  enum LockTriggerType: String, Codable {
+      case proximity, panic, intruderCapture
+  }
+  struct LockEvent: Identifiable, Codable {
+      let id: UUID
+      let date: Date
+      let trigger: LockTriggerType
+      var photoFilename: String?   // non-nil only for .intruderCapture events
+  }
+  // clear() must also delete captured photo files from disk
+  ```
+
+  **`PanicModeManager` change** — in `authenticateWithBiometrics` callback:
+  ```swift
+  // existing: success = false path
+  if let laError = error as? LAError, laError.code == .authenticationFailed {
+      IntruderCaptureManager.shared.capturePhoto { filename in
+          LockHistoryStore.shared.record(.intruderCapture, photoFilename: filename)
+      }
+  }
+  ```
+
+  **`LockHistoryView` changes**:
+  - `.intruderCapture` rows show a camera icon + "Failed unlock attempt"
+  - If `photoFilename` is set, show a thumbnail (40×40 rounded) next to the row
+  - Tap thumbnail → full-screen sheet with photo + date + delete button
+
+  **Permissions flow**:
+  - Request camera permission on first failed auth attempt (lazy — only ask when needed)
+  - If denied: record the event without a photo, show "Camera access denied" note in History
+
+  **Privacy**:
+  - Photos stored in app sandbox only (`~/Library/Application Support/DockLock/Captures/`)
+  - Never uploaded, no network access
+  - Deleted when user taps "Clear All" in History
 - [ ] **iCloud Sync** — sync settings and blocklist across multiple Macs
 
 **Future / Backlog**

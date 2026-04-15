@@ -383,11 +383,13 @@ class PanicModeManager: ObservableObject {
 
     private func authenticateWithBiometrics(completion: @MainActor @escaping (Bool) -> Void) {
         let context = LAContext()
-        var error: NSError?
-        let policy: LAPolicy = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
-            ? .deviceOwnerAuthenticationWithBiometrics
-            : .deviceOwnerAuthentication
-        context.evaluatePolicy(policy, localizedReason: "Unlock DockLock Panic Mode") { success, authError in
+        // Use .deviceOwnerAuthentication (Touch ID + password in one system dialog managed by
+        // SecurityAgent). Using .deviceOwnerAuthenticationWithBiometrics causes "Use Password"
+        // to return LAError.userFallback to the app instead of handling it internally — the app
+        // would need to present its own password UI. With .deviceOwnerAuthentication the system
+        // handles the entire flow and the dialog appears above our overlay window.
+        context.evaluatePolicy(.deviceOwnerAuthentication,
+                                localizedReason: "Unlock DockLock Panic Mode") { success, authError in
             Task { @MainActor in
                 if !success, let err = authError as? LAError, err.code == .authenticationFailed {
                     // Wrong biometric or wrong password — capture the intruder.

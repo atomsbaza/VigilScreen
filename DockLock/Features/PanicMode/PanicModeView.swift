@@ -84,7 +84,9 @@ struct PanicModeView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(ids, id: \.self) { id in
-                        BlocklistRow(bundleID: id)
+                        BlocklistRow(bundleID: id) {
+                            blocklist.remove(id)
+                        }
                     }
                     .onDelete { indexSet in
                         let sorted = ids
@@ -151,6 +153,9 @@ struct PanicModeView: View {
 
 private struct BlocklistRow: View {
     let bundleID: String
+    let onRemove: () -> Void
+
+    @State private var isHovering = false
 
     private var runningApp: NSRunningApplication? {
         NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == bundleID }
@@ -179,7 +184,16 @@ private struct BlocklistRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Spacer()
+            Button(action: onRemove) {
+                Image(systemName: "minus.circle.fill")
+                    .foregroundStyle(.red)
+            }
+            .buttonStyle(.plain)
+            .opacity(isHovering ? 1 : 0)
+            .help("Remove from blocklist")
         }
+        .onHover { isHovering = $0 }
     }
 }
 

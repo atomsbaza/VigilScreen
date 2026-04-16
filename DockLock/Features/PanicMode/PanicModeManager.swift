@@ -18,6 +18,7 @@ class PanicModeManager: ObservableObject {
     // Tracked so they can be unhidden on release.
     private var hiddenApps: [NSRunningApplication] = []
     private var isAuthenticating = false
+    private var panicTask: Task<Void, Never>?
     private var panicCancellables = Set<AnyCancellable>()
     private var shortcutMonitor: Any?
     private let safelist = AppSafelist.shared
@@ -81,8 +82,16 @@ class PanicModeManager: ObservableObject {
         overlayWindows.values.forEach { $0.alphaValue = 0 }
     }
 
+    private func setOverlayLevel(_ level: NSWindow.Level) {
+        overlayWindows.values.forEach { $0.level = level }
+    }
+
     private func dismissAllOverlays() {
-        overlayWindows.values.forEach { $0.orderOut(nil) }
+        let normalBelow = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue - 1)
+        overlayWindows.values.forEach {
+            $0.level = normalBelow
+            $0.orderOut(nil)
+        }
     }
 
     private init() {
@@ -123,24 +132,58 @@ class PanicModeManager: ObservableObject {
 
     // MARK: - Panic
 
+    private func exitFullScreenIfNeeded(_ app: NSRunningApplication) {
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        var windowsRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, "AXWindows" as CFString, &windowsRef) == .success,
+              let windows = windowsRef as? [AXUIElement] else { return }
+        for window in windows {
+            var valueRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &valueRef) == .success,
+                  CFGetTypeID(valueRef!) == CFBooleanGetTypeID(),
+                  (valueRef as! CFBoolean) == kCFBooleanTrue else { continue }
+            AXUIElementSetAttributeValue(window, "AXFullScreen" as CFString, kCFBooleanFalse)
+        }
+    }
+
     func triggerPanic() {
         if !isActive {
             LockHistoryStore.shared.record(.panic)
         }
         closeNotificationCenter()
 
-        // Hide ALL regular apps that are not in the safelist.
         hiddenApps = NSWorkspace.shared.runningApplications.filter {
             guard let id = $0.bundleIdentifier else { return false }
             return $0.activationPolicy == .regular && !safelist.bundleIDs.contains(id)
         }
+
+        // Phase 1: exit full-screen (synchronous AX call), then hide.
+        // hide() works immediately for windowed apps; full-screen apps need the AX exit first.
+        hiddenApps.forEach { exitFullScreenIfNeeded($0) }
         hiddenApps.forEach { $0.hide() }
 
         isActive = true
+
+        // Prewarm at alpha=0, elevate to screenSaver so the overlay covers
+        // any full-screen app that hasn't finished its exit animation yet.
         prewarmOverlays()
-        // Show overlay on all screens immediately — no polling, no flash.
+        setOverlayLevel(.screenSaver)
         showOverlaysOnAllScreens()
         startMonitoringSpaceSwitches()
+
+        // Phase 2: after ~300ms full-screen exit animation + buffer, re-hide
+        // newly-windowed apps and lower overlay to -1 so safelisted apps re-emerge.
+        panicTask?.cancel()
+        panicTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard let self, !Task.isCancelled else { return }
+            await MainActor.run {
+                guard self.isActive else { return }
+                self.hiddenApps.forEach { $0.hide() }
+                let normalBelow = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue - 1)
+                self.setOverlayLevel(normalBelow)
+            }
+        }
     }
 
     // MARK: - Notification Center
@@ -222,6 +265,8 @@ class PanicModeManager: ObservableObject {
     }
 
     private func unhideAll() {
+        panicTask?.cancel()
+        panicTask = nil
         hiddenApps.forEach { $0.unhide() }
         hiddenApps = []
         isAuthenticating = false
@@ -231,6 +276,8 @@ class PanicModeManager: ObservableObject {
     }
 
     private func clearWithoutUnhiding() {
+        panicTask?.cancel()
+        panicTask = nil
         hiddenApps = []
         isAuthenticating = false
         panicCancellables.removeAll()

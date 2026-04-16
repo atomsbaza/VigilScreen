@@ -28,6 +28,23 @@ Blur everything instantly with one keystroke — only your trusted apps stay vis
 - No flash, no polling — blur appears on all screens in a single frame
 - Release with Touch ID for added security
 
+### 📸 **Intruder Capture**
+Automatically photographs anyone who fails a panic-release attempt.
+- Captures a photo from the front camera on wrong Touch ID / password
+- Saved locally to `~/Pictures/DockLock Captures/` — never uploaded
+- Visible in the History log with timestamp
+
+### 📋 **Lock History**
+A full audit log of every lock event.
+- Records Proximity Lock triggers, Panic Mode activations, and failed unlock attempts
+- View in Settings → History
+- Clear at any time
+
+### 📊 **Menubar Live Stats**
+At-a-glance Bluetooth and countdown info next to the menu bar icon.
+- Shows live RSSI and lock countdown without opening the popover
+- Toggle in Settings → General
+
 ### 🎉 **First-Run Onboarding**
 Get set up in seconds with a guided welcome checklist.
 - Live status for Accessibility, Bluetooth pairing, and app blocklist
@@ -145,7 +162,9 @@ DockLock/
 ├── Core/
 │   ├── LockEngine.swift           # Sends lock screen command
 │   ├── SettingsStore.swift        # UserDefaults wrapper
-│   └── PermissionManager.swift    # Requests OS permissions (@MainActor)
+│   ├── PermissionManager.swift    # Requests OS permissions (@MainActor)
+│   ├── IntruderCaptureManager.swift # Front-camera capture on failed auth
+│   └── LockHistoryStore.swift     # Persisted audit log of lock events
 │
 ├── Settings/
 │   └── SettingsView.swift         # Main settings window
@@ -192,8 +211,9 @@ DockLock requests only the permissions it needs:
 | **Bluetooth** | To scan for nearby iPhone/Watch | When enabling Proximity Lock |
 | **Accessibility** | To register global keyboard shortcut | When customizing Panic Mode hotkey |
 | **Face ID/Touch ID** | To authenticate panic release | When enabling Panic Mode |
+| **Camera** | Intruder Capture photo on failed unlock | On first failed auth attempt (lazy) |
 
-**What we DON'T ask for:** Camera, Microphone, Location, Network
+**What we DON'T ask for:** Microphone, Location, Network
 
 ---
 
@@ -255,23 +275,20 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
-### ✅ v0.1.0 (MVP)
+### ✅ v0.1.0 (Current)
 - Panic Mode — instant full-screen blur on all screens, safelist keeps trusted apps visible
 - Proximity Lock (Bluetooth) — auto-triggers Panic Mode before locking
-- Local settings
-- First-run onboarding
+- Intruder Capture — front-camera photo on failed unlock, saved to `~/Pictures/DockLock Captures/`
+- Lock History — full audit log of lock events
+- Menubar Live Stats — live RSSI + countdown in menu bar
+- Local settings, first-run onboarding
 - Liquid Glass UI (macOS 26)
 - Swift 6 strict concurrency
 - Apple Privacy Manifest (PrivacyInfo.xcprivacy)
 
-### 🚀 Phase 2
-- Menubar stats
-- Lock history log
-- Intruder Capture
-
 ### 💡 Future
-- iCloud Sync
-- Custom app modes
+- iCloud Sync across multiple Macs
+- Custom app modes (office, café, etc.)
 - Third-party integrations
 
 ---

@@ -13,5 +13,9 @@
     <!-- Required for Panic Mode global keyboard shortcut -->
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
     <false/>
+
+    <!-- TODO (v0.2.0): Enable iCloud Key-value storage via Xcode → Signing & Capabilities
+         → iCloud → Key-value storage (requires paid Apple Developer account).
+         Xcode will auto-add: com.apple.developer.ubiquity-kvstore-identifier -->
 </dict>
 </plist>

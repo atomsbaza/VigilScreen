@@ -143,7 +143,9 @@ class PanicModeManager: ObservableObject {
 
                 var axPos  = CGPoint.zero
                 var axSize = CGSize.zero
-                AXValueGetValue(posAX  as! AXValue, .cgPoint, &axPos)
+                guard CFGetTypeID(posAX) == AXValueGetTypeID(),
+                      CFGetTypeID(sizeAX) == AXValueGetTypeID() else { continue }
+                AXValueGetValue(posAX as! AXValue, .cgPoint, &axPos)
                 AXValueGetValue(sizeAX as! AXValue, .cgSize,  &axSize)
 
                 // Convert AX coords (top-left origin, y increases downward) to
@@ -261,8 +263,9 @@ class PanicModeManager: ObservableObject {
         for window in windows {
             var valueRef: CFTypeRef?
             guard AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &valueRef) == .success,
-                  CFGetTypeID(valueRef!) == CFBooleanGetTypeID(),
-                  (valueRef as! CFBoolean) == kCFBooleanTrue else { continue }
+                  let ref = valueRef,
+                  CFGetTypeID(ref) == CFBooleanGetTypeID(),
+                  (ref as! CFBoolean) == kCFBooleanTrue else { continue }
             AXUIElementSetAttributeValue(window, "AXFullScreen" as CFString, kCFBooleanFalse)
         }
     }
@@ -275,16 +278,16 @@ class PanicModeManager: ObservableObject {
         for window in windows {
             var valueRef: CFTypeRef?
             guard AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &valueRef) == .success,
-                  CFGetTypeID(valueRef!) == CFBooleanGetTypeID() else { continue }
-            if (valueRef as! CFBoolean) == kCFBooleanTrue { return true }
+                  let ref = valueRef,
+                  CFGetTypeID(ref) == CFBooleanGetTypeID() else { continue }
+            if (ref as! CFBoolean) == kCFBooleanTrue { return true }
         }
         return false
     }
 
     func triggerPanic() {
-        if !isActive {
-            LockHistoryStore.shared.record(.panic)
-        }
+        guard !isActive else { return }
+        LockHistoryStore.shared.record(.panic)
         closeNotificationCenter()
 
         let ownID = Bundle.main.bundleIdentifier
@@ -353,7 +356,7 @@ class PanicModeManager: ObservableObject {
                     // so their current positions/sizes are reflected accurately.
                     self.updateOverlayMasks()
                 }
-                try? await Task.sleep(nanoseconds: 100_000_000)   // 100 ms
+                try? await Task.sleep(nanoseconds: 250_000_000)   // 250 ms
             }
         }
     }
@@ -493,9 +496,12 @@ class PanicModeManager: ObservableObject {
         context.evaluatePolicy(.deviceOwnerAuthentication,
                                 localizedReason: "Unlock DockLock Panic Mode") { success, authError in
             Task { @MainActor in
-                if !success, let err = authError as? LAError, err.code == .authenticationFailed {
-                    IntruderCaptureManager.shared.capturePhoto { filename in
-                        LockHistoryStore.shared.record(.intruderCapture, photoFilename: filename)
+                if !success, SettingsStore.shared.intruderCaptureEnabled {
+                    let isSystemCancel = (authError as? LAError)?.code == .systemCancel
+                    if !isSystemCancel {
+                        IntruderCaptureManager.shared.capturePhoto { filename in
+                            LockHistoryStore.shared.record(.intruderCapture, photoFilename: filename)
+                        }
                     }
                 }
                 completion(success)

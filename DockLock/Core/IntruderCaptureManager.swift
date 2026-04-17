@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import AppKit
+@preconcurrency import UserNotifications
 
 /// Captures a still photo from the front-facing (FaceTime) camera when an
 /// unauthorised unlock attempt is detected. Photos are saved as JPEG files in
@@ -46,6 +47,8 @@ class IntruderCaptureManager: NSObject, AVCapturePhotoCaptureDelegate {
     // MARK: - Private
 
     private func performCapture(completion: @MainActor @escaping (String?) -> Void) {
+        guard session == nil else { completion(nil); return }
+
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera,
                                                     for: .video,
                                                     position: .front),
@@ -58,11 +61,11 @@ class IntruderCaptureManager: NSObject, AVCapturePhotoCaptureDelegate {
 
         let session = AVCaptureSession()
         session.sessionPreset = .photo
-        guard session.canAddInput(input) else { completion(nil); return }
+        guard session.canAddInput(input) else { captureCompletion = nil; completion(nil); return }
         session.addInput(input)
 
         let output = AVCapturePhotoOutput()
-        guard session.canAddOutput(output) else { completion(nil); return }
+        guard session.canAddOutput(output) else { captureCompletion = nil; completion(nil); return }
         session.addOutput(output)
 
         self.session = session
@@ -86,6 +89,33 @@ class IntruderCaptureManager: NSObject, AVCapturePhotoCaptureDelegate {
         }
     }
 
+    // MARK: - Notification
+
+    private func postCaptureNotification() {
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            guard self != nil else { return }
+            switch settings.authorizationStatus {
+            case .authorized, .provisional:
+                Task { @MainActor in self?.sendNotification() }
+            case .notDetermined:
+                UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, _ in
+                    if granted { Task { @MainActor in self?.sendNotification() } }
+                }
+            default:
+                break
+            }
+        }
+    }
+
+    private func sendNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Intruder Capture"
+        content.body = "A photo was saved to History."
+        content.sound = nil
+        let req = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(req, withCompletionHandler: nil)
+    }
+
     // MARK: - AVCapturePhotoCaptureDelegate
 
     nonisolated func photoOutput(_ output: AVCapturePhotoOutput,
@@ -96,11 +126,10 @@ class IntruderCaptureManager: NSObject, AVCapturePhotoCaptureDelegate {
         let photoData: Data? = error == nil ? photo.fileDataRepresentation() : nil
 
         Task { @MainActor in
-            defer {
-                self.session?.stopRunning()
-                self.session = nil
-                self.photoOutput = nil
-            }
+            let sessionToStop = self.session
+            self.session = nil
+            self.photoOutput = nil
+            DispatchQueue.global(qos: .userInitiated).async { sessionToStop?.stopRunning() }
 
             guard let data = photoData else {
                 self.captureCompletion?(nil)
@@ -113,6 +142,7 @@ class IntruderCaptureManager: NSObject, AVCapturePhotoCaptureDelegate {
             do {
                 try data.write(to: url, options: .atomic)
                 self.captureCompletion?(filename)
+                self.postCaptureNotification()
             } catch {
                 self.captureCompletion?(nil)
             }

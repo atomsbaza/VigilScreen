@@ -13,6 +13,7 @@ struct PanicModeView: View {
             Section("Behaviour") {
                 Toggle("Require Touch ID to release", isOn: $settings.panicRequiresTouchID)
                 Toggle("Enable ⌘⇧L global shortcut", isOn: $settings.panicShortcutEnabled)
+                Toggle("Capture photo on failed unlock", isOn: $settings.intruderCaptureEnabled)
             }
 
             Section {

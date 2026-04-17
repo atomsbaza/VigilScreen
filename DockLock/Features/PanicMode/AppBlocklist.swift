@@ -16,7 +16,21 @@ class AppSafelist: ObservableObject {
 
         cancellable = $bundleIDs
             .dropFirst()
-            .sink { UserDefaults.standard.set(Array($0), forKey: "panicBlocklist") }
+            .sink { ids in
+                UserDefaults.standard.set(Array(ids), forKey: "panicBlocklist")
+                NSUbiquitousKeyValueStore.default.set(Array(ids), forKey: "panicBlocklist")
+            }
+    }
+
+    // MARK: - iCloud Sync
+
+    func syncFromCloud(_ store: NSUbiquitousKeyValueStore) {
+        guard let ids = store.array(forKey: "panicBlocklist") as? [String] else { return }
+        bundleIDs = Set(ids)
+    }
+
+    func applyCloudUpdate(_ store: NSUbiquitousKeyValueStore) {
+        syncFromCloud(store)
     }
 
     func add(_ bundleID: String) {

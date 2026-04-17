@@ -30,9 +30,11 @@ Blur everything instantly with one keystroke — only your trusted apps stay vis
 
 ### 📸 **Intruder Capture**
 Automatically photographs anyone who fails a panic-release attempt.
-- Captures a photo from the front camera on wrong Touch ID / password
+- Captures a photo from the front camera on wrong Touch ID or password attempt
 - Saved locally to `~/Pictures/DockLock Captures/` — never uploaded
-- Visible in the History log with timestamp
+- Sends a macOS notification so you know even when you're away from the History tab
+- Visible in the History log with thumbnail — tap to enlarge
+- Toggle on/off in Settings → Panic Mode
 
 ### 📋 **Lock History**
 A full audit log of every lock event.
@@ -58,7 +60,8 @@ Native macOS 26 visual design when available.
 - Graceful fallback to standard SwiftUI on macOS 15–25
 
 ### 🔐 **Security First**
-- **Local-first**: All processing happens on your Mac. No cloud sync, no network calls
+- **Local-first**: All processing happens on your Mac. No network calls, no telemetry
+- **iCloud Sync** *(v0.2.0)*: Settings, App Safelist, and Lock History sync across your Macs via `NSUbiquitousKeyValueStore` — never sent to third parties
 - **Open source**: Community audits the code
 - **Zero dependencies**: Pure Apple frameworks only
 - **Privacy-focused**: We don't collect telemetry or analytics
@@ -164,7 +167,8 @@ DockLock/
 │   ├── SettingsStore.swift        # UserDefaults wrapper
 │   ├── PermissionManager.swift    # Requests OS permissions (@MainActor)
 │   ├── IntruderCaptureManager.swift # Front-camera capture on failed auth
-│   └── LockHistoryStore.swift     # Persisted audit log of lock events
+│   ├── LockHistoryStore.swift     # Persisted audit log of lock events
+│   └── CloudSyncStore.swift       # iCloud KV sync coordinator (NSUbiquitousKeyValueStore)
 │
 ├── Settings/
 │   └── SettingsView.swift         # Main settings window
@@ -220,7 +224,7 @@ DockLock requests only the permissions it needs:
 ## FAQ
 
 **Q: Does DockLock work with multiple Macs?**
-A: Currently no — MVP focuses on single-Mac setup. iCloud Sync is planned for Phase 2.
+A: iCloud Sync is implemented and will be activated in v0.2.0 — it syncs Settings, App Safelist, and Lock History across all your Macs automatically.
 
 **Q: What if my iPhone is out of battery?**
 A: Proximity Lock won't trigger. Panic Mode still works independently.
@@ -238,10 +242,11 @@ A: Yes. Optimized for M1/M2/M3 Macs.
 
 ## Privacy & Security
 
-### No Cloud Storage
-- Settings stay on your Mac only
+### Privacy-First Storage
+- Settings, Safelist, and History sync via iCloud KV store (v0.2.0) — no third-party servers
 - No accounts, no logins
 - Bluetooth pairing info in system Keychain (encrypted)
+- Intruder photos stored locally only (`~/Pictures/DockLock Captures/`) — never synced
 
 ### No Telemetry
 - No usage tracking, crash reporting, or analytics
@@ -286,10 +291,14 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 - Swift 6 strict concurrency
 - Apple Privacy Manifest (PrivacyInfo.xcprivacy)
 
+### 🔜 v0.2.0 (Planned)
+- Notarized release — no Gatekeeper warning, Homebrew Cask (`brew install --cask docklock`)
+- iCloud Sync activated — Settings, App Safelist, and Lock History sync across Macs
+
 ### 💡 Future
-- iCloud Sync across multiple Macs
 - Custom app modes (office, café, etc.)
-- Third-party integrations
+- Multiple paired Bluetooth devices (iPhone + Apple Watch)
+- Shoulder surfing detection (Core ML + Vision)
 
 ---
 

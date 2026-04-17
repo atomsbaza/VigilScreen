@@ -60,6 +60,7 @@ class LockHistoryStore: ObservableObject {
         events.forEach { deletePhoto(for: $0) }
         events = []
         UserDefaults.standard.removeObject(forKey: key)
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: key)
     }
 
     // MARK: - Photo helpers
@@ -74,11 +75,32 @@ class LockHistoryStore: ObservableObject {
         try? FileManager.default.removeItem(at: url)
     }
 
+    // MARK: - iCloud Sync
+
+    func syncFromCloud(_ store: NSUbiquitousKeyValueStore) {
+        guard let data = store.data(forKey: key),
+              let cloudEvents = try? decoder.decode([LockEvent].self, from: data),
+              !cloudEvents.isEmpty else { return }
+        let merged = Dictionary(uniqueKeysWithValues: (events + cloudEvents).map { ($0.id, $0) })
+        events = merged.values.sorted { $0.date > $1.date }
+        if events.count > maxEvents { events = Array(events.prefix(maxEvents)) }
+        save()
+    }
+
+    func applyCloudUpdate(_ store: NSUbiquitousKeyValueStore) {
+        syncFromCloud(store)
+    }
+
     // MARK: - Persistence
 
     private func save() {
         guard let data = try? encoder.encode(events) else { return }
         UserDefaults.standard.set(data, forKey: key)
+        // Exclude intruderCapture events from iCloud — they contain security incident timestamps
+        let cloudEvents = events.filter { $0.trigger != .intruderCapture }
+        if let cloudData = try? encoder.encode(cloudEvents) {
+            NSUbiquitousKeyValueStore.default.set(cloudData, forKey: key)
+        }
     }
 
     private func load() {

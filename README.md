@@ -245,6 +245,7 @@ A: Yes. Optimized for M1/M2/M3 Macs.
 | Issue | Workaround |
 |---|---|
 | **Panic Mode — secondary monitor not covered when connected mid-panic** | Overlays are created once at panic start. A display plugged in *after* Panic Mode is already active will not have a blur overlay — its desktop, menu bar, and non-safelisted windows remain fully visible. Re-trigger Panic Mode after connecting the display as a workaround. |
+| **Panic Mode — occasional blur flash when switching windows** | Switching between a non-safelisted and a safelisted app may briefly show a blur flash. This happens because some apps (e.g. Chrome) relayout their window chrome on activation, so the transparency hole in the overlay is momentarily too narrow before correcting itself. |
 
 ---
 

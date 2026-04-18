@@ -24,6 +24,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         _ = PanicModeManager.shared
         _ = LockTrigger.shared
+
+        CloudSyncStore.shared.synchronize()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

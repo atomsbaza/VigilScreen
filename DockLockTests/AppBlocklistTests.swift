@@ -1,15 +1,13 @@
 import XCTest
 @testable import DockLock
 
-/// Tests for AppBlocklist. Uses the shared singleton; cleans up UserDefaults before each test.
-@MainActor
+/// Tests for AppSafelist. Uses the shared singleton; cleans up UserDefaults before each test.
 final class AppBlocklistTests: XCTestCase {
 
     private let udKey = "panicBlocklist"
 
     override func setUp() {
         super.setUp()
-        // Remove persisted list so each test starts clean
         UserDefaults.standard.removeObject(forKey: udKey)
     }
 
@@ -20,80 +18,79 @@ final class AppBlocklistTests: XCTestCase {
 
     // MARK: - Default list
 
-    func testDefaultsContainsTerminal() {
-        XCTAssertTrue(AppBlocklist.defaults.contains("com.apple.Terminal"))
+    @MainActor func testDefaultsContainsTerminal() {
+        XCTAssertTrue(AppSafelist.defaults.contains("com.apple.Terminal"))
     }
 
-    func testDefaultsContainsXcode() {
-        XCTAssertTrue(AppBlocklist.defaults.contains("com.apple.dt.Xcode"))
+    @MainActor func testDefaultsContainsXcode() {
+        XCTAssertTrue(AppSafelist.defaults.contains("com.apple.dt.Xcode"))
     }
 
-    func testDefaultsContainsVSCode() {
-        XCTAssertTrue(AppBlocklist.defaults.contains("com.microsoft.VSCode"))
+    @MainActor func testDefaultsContainsVSCode() {
+        XCTAssertTrue(AppSafelist.defaults.contains("com.microsoft.VSCode"))
     }
 
-    func testDefaultsContainsSafari() {
-        XCTAssertTrue(AppBlocklist.defaults.contains("com.apple.Safari"))
+    @MainActor func testDefaultsContainsSafari() {
+        XCTAssertTrue(AppSafelist.defaults.contains("com.apple.Safari"))
     }
 
-    func testDefaultsContainsChrome() {
-        XCTAssertTrue(AppBlocklist.defaults.contains("com.google.Chrome"))
+    @MainActor func testDefaultsContainsChrome() {
+        XCTAssertTrue(AppSafelist.defaults.contains("com.google.Chrome"))
     }
 
-    func testDefaultsContainsSlack() {
-        XCTAssertTrue(AppBlocklist.defaults.contains("com.tinyspeck.slackmacgap"))
+    @MainActor func testDefaultsContainsSlack() {
+        XCTAssertTrue(AppSafelist.defaults.contains("com.tinyspeck.slackmacgap"))
     }
 
-    func testDefaultsContainsNotion() {
-        XCTAssertTrue(AppBlocklist.defaults.contains("notion.id"))
+    @MainActor func testDefaultsContainsNotion() {
+        XCTAssertTrue(AppSafelist.defaults.contains("notion.id"))
     }
 
-    func testDefaultsCount() {
-        XCTAssertEqual(AppBlocklist.defaults.count, 7)
+    @MainActor func testDefaultsCount() {
+        XCTAssertEqual(AppSafelist.defaults.count, 7)
     }
 
     // MARK: - Add / Remove
 
-    func testAdd_insertsID() {
+    @MainActor func testAdd_insertsID() {
         let id = "com.test.AddTest"
-        AppBlocklist.shared.add(id)
-        XCTAssertTrue(AppBlocklist.shared.bundleIDs.contains(id))
-        AppBlocklist.shared.remove(id)
+        AppSafelist.shared.add(id)
+        XCTAssertTrue(AppSafelist.shared.bundleIDs.contains(id))
+        AppSafelist.shared.remove(id)
     }
 
-    func testRemove_deletesID() {
+    @MainActor func testRemove_deletesID() {
         let id = "com.test.RemoveTest"
-        AppBlocklist.shared.add(id)
-        AppBlocklist.shared.remove(id)
-        XCTAssertFalse(AppBlocklist.shared.bundleIDs.contains(id))
+        AppSafelist.shared.add(id)
+        AppSafelist.shared.remove(id)
+        XCTAssertFalse(AppSafelist.shared.bundleIDs.contains(id))
     }
 
-    func testAdd_doesNotDuplicate() {
+    @MainActor func testAdd_doesNotDuplicate() {
         let id = "com.test.DupTest"
-        let countBefore = AppBlocklist.shared.bundleIDs.count
-        AppBlocklist.shared.add(id)
-        AppBlocklist.shared.add(id)
-        XCTAssertEqual(AppBlocklist.shared.bundleIDs.count, countBefore + 1)
-        AppBlocklist.shared.remove(id)
+        let countBefore = AppSafelist.shared.bundleIDs.count
+        AppSafelist.shared.add(id)
+        AppSafelist.shared.add(id)
+        XCTAssertEqual(AppSafelist.shared.bundleIDs.count, countBefore + 1)
+        AppSafelist.shared.remove(id)
     }
 
     // MARK: - UserDefaults persistence
 
-    func testAdd_persistsToUserDefaults() {
+    @MainActor func testAdd_persistsToUserDefaults() {
         let id = "com.test.PersistTest"
-        AppBlocklist.shared.add(id)
-        // Allow Combine sink to fire
+        AppSafelist.shared.add(id)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         let saved = UserDefaults.standard.stringArray(forKey: udKey) ?? []
         XCTAssertTrue(saved.contains(id))
-        AppBlocklist.shared.remove(id)
+        AppSafelist.shared.remove(id)
     }
 
-    func testRemove_updatesUserDefaults() {
+    @MainActor func testRemove_updatesUserDefaults() {
         let id = "com.test.RemovePersistTest"
-        AppBlocklist.shared.add(id)
+        AppSafelist.shared.add(id)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
-        AppBlocklist.shared.remove(id)
+        AppSafelist.shared.remove(id)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         let saved = UserDefaults.standard.stringArray(forKey: udKey) ?? []
         XCTAssertFalse(saved.contains(id))

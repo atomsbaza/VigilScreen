@@ -3,8 +3,8 @@ import Combine
 import AppKit
 import UniformTypeIdentifiers
 
-class AppBlocklist: ObservableObject {
-    static let shared = AppBlocklist()
+class AppSafelist: ObservableObject {
+    static let shared = AppSafelist()
 
     @Published var bundleIDs: Set<String>
 
@@ -12,11 +12,25 @@ class AppBlocklist: ObservableObject {
 
     private init() {
         let saved = UserDefaults.standard.stringArray(forKey: "panicBlocklist")
-        bundleIDs = Set(saved ?? AppBlocklist.defaults)
+        bundleIDs = Set(saved ?? AppSafelist.defaults)
 
         cancellable = $bundleIDs
             .dropFirst()
-            .sink { UserDefaults.standard.set(Array($0), forKey: "panicBlocklist") }
+            .sink { ids in
+                UserDefaults.standard.set(Array(ids), forKey: "panicBlocklist")
+                NSUbiquitousKeyValueStore.default.set(Array(ids), forKey: "panicBlocklist")
+            }
+    }
+
+    // MARK: - iCloud Sync
+
+    func syncFromCloud(_ store: NSUbiquitousKeyValueStore) {
+        guard let ids = store.array(forKey: "panicBlocklist") as? [String] else { return }
+        bundleIDs = Set(ids)
+    }
+
+    func applyCloudUpdate(_ store: NSUbiquitousKeyValueStore) {
+        syncFromCloud(store)
     }
 
     func add(_ bundleID: String) {
@@ -29,11 +43,11 @@ class AppBlocklist: ObservableObject {
 
     // MARK: - Export
 
-    /// Writes the blocklist as a JSON array to a user-chosen file.
+    /// Writes the safelist as a JSON array to a user-chosen file.
     func exportToFile() {
         let panel = NSSavePanel()
-        panel.title = "Export App Blocklist"
-        panel.nameFieldStringValue = "DockLock-Blocklist.json"
+        panel.title = "Export App Safelist"
+        panel.nameFieldStringValue = "DockLock-Safelist.json"
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true
 
@@ -53,7 +67,7 @@ class AppBlocklist: ObservableObject {
     /// Reads a JSON array of bundle IDs and merges them into the current list.
     func importFromFile() {
         let panel = NSOpenPanel()
-        panel.title = "Import App Blocklist"
+        panel.title = "Import App Safelist"
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -70,7 +84,7 @@ class AppBlocklist: ObservableObject {
         }
     }
 
-    // Default apps to hide during panic
+    // Default apps to keep visible during panic
     static let defaults: [String] = [
         "com.apple.Terminal",
         "com.microsoft.VSCode",

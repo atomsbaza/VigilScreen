@@ -16,6 +16,9 @@ struct SettingsView: View {
                 NavigationLink(destination: ProximityView()) {
                     Label("Proximity Lock", systemImage: "antenna.radiowaves.left.and.right")
                 }
+                NavigationLink(destination: LockHistoryView()) {
+                    Label("History", systemImage: "clock")
+                }
             }
             .navigationTitle("DockLock")
             .listStyle(.sidebar)
@@ -37,6 +40,15 @@ private struct GeneralSettingsView: View {
                     .onChange(of: settings.launchAtLogin) { _, enabled in
                         toggleLaunchAtLogin(enabled)
                     }
+            }
+
+            Section("Menu Bar") {
+                Toggle("Show live Bluetooth stats", isOn: $settings.showMenuBarStats)
+                if settings.showMenuBarStats {
+                    Text("Displays signal strength (dBm) and countdown next to the menu bar icon when Proximity Lock is active.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             Section("Permissions") {

@@ -244,7 +244,7 @@ A: Yes. Optimized for M1/M2/M3 Macs.
 
 | Issue | Workaround |
 |---|---|
-| **Panic Mode — secondary monitor not covered when connected mid-panic** | Overlays are created once at panic start. A display plugged in *after* Panic Mode is already active will not have a blur overlay — its desktop, menu bar, and non-safelisted windows remain fully visible. Re-trigger Panic Mode after connecting the display as a workaround. Fix planned for v0.2.2. |
+| **Panic Mode — secondary monitor not covered when connected mid-panic** | Overlays are created once at panic start. A display plugged in *after* Panic Mode is already active will not have a blur overlay — its desktop, menu bar, and non-safelisted windows remain fully visible. Re-trigger Panic Mode after connecting the display as a workaround. |
 
 ---
 

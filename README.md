@@ -25,7 +25,7 @@ Auto-lock your Mac when you step away from your desk.
 Blur everything instantly with one keystroke — only your trusted apps stay visible.
 - Single hotkey (default: `⌘+Shift+L`) blurs all screens immediately and hides non-safelisted apps
 - **Safelist model**: apps you trust (Terminal, IDE, browsers, etc.) remain visible and interactive above the blur; everything else vanishes
-- No flash, no polling — blur appears on all screens in a single frame
+- No flash, no polling — blur appears on all screens in a single frame; overlay resets instantly on safelisted app switch and fades back in after a short settling window
 - Release with Touch ID for added security
 
 ### 📸 **Intruder Capture**
@@ -224,7 +224,7 @@ DockLock requests only the permissions it needs:
 ## FAQ
 
 **Q: Does DockLock work with multiple Macs?**
-A: iCloud Sync is implemented and will be activated in v0.2.0 — it syncs Settings, App Safelist, and Lock History across all your Macs automatically.
+A: Yes — iCloud Sync (added in v0.2.0) automatically syncs Settings, App Safelist, and Lock History across all your Macs.
 
 **Q: What if my iPhone is out of battery?**
 A: Proximity Lock won't trigger. Panic Mode still works independently.
@@ -236,16 +236,16 @@ A: Only apps in your **Safelist** remain visible above the blur (default: Termin
 A: Completely safe. All processing is local. No cloud, no analytics, no telemetry. It's open source — audit the code yourself.
 
 **Q: Does it work on Apple Silicon?**
-A: Yes. Optimized for M1/M2/M3 Macs.
+A: Yes. Optimized for M1/M2/M3/M4 Macs.
 
 ---
 
 ## Known Issues
 
-| Issue | Workaround |
-|---|---|
-| **Panic Mode — secondary monitor not covered when connected mid-panic** | Overlays are created once at panic start. A display plugged in *after* Panic Mode is already active will not have a blur overlay — its desktop, menu bar, and non-safelisted windows remain fully visible. Re-trigger Panic Mode after connecting the display as a workaround. |
-| **Panic Mode — occasional blur flash when switching windows** | Switching between a non-safelisted and a safelisted app may briefly show a blur flash. This happens because some apps (e.g. Chrome) relayout their window chrome on activation, so the transparency hole in the overlay is momentarily too narrow before correcting itself. |
+| Issue | Status | Workaround |
+|---|---|---|
+| **Panic Mode — secondary monitor not covered when connected mid-panic** | Open — planned fix in v0.2.2 | Overlays are created once at panic start. Re-trigger Panic Mode (`⌘+Shift+L` twice) after connecting the display. |
+| **Panic Mode — blur flash when switching to a safelisted app** | Fixed in v0.2.1 | — |
 
 ---
 
@@ -289,7 +289,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
-### ✅ v0.1.0 (Current)
+### ✅ v0.1.0
 - Panic Mode — instant full-screen blur on all screens, safelist keeps trusted apps visible
 - Proximity Lock (Bluetooth) — auto-triggers Panic Mode before locking
 - Intruder Capture — front-camera photo on failed unlock, saved to `~/Pictures/DockLock Captures/`
@@ -300,9 +300,15 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 - Swift 6 strict concurrency
 - Apple Privacy Manifest (PrivacyInfo.xcprivacy)
 
-### 🔜 v0.2.0 (Planned)
-- Notarized release — no Gatekeeper warning, Homebrew Cask (`brew install --cask docklock`)
-- iCloud Sync activated — Settings, App Safelist, and Lock History sync across Macs
+### ✅ v0.2.0
+- iCloud Sync — Settings, App Safelist, and Lock History sync across Macs via `NSUbiquitousKeyValueStore`
+- Notarized release — no Gatekeeper warning
+
+### ✅ v0.2.1 (Current)
+- Fix: eliminated overlay flash when switching to a safelisted app during Panic Mode — overlay alpha resets instantly on activation, mask rebuilds after a 70 ms settling window, then fades back in over 180 ms
+
+### 🔜 v0.2.2 (Planned)
+- Fix: blur overlay for secondary monitors connected after Panic Mode is already active
 
 ### 💡 Future
 - Custom app modes (office, café, etc.)

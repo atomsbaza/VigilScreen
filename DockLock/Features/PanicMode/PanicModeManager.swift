@@ -1,6 +1,7 @@
 import AppKit
 import LocalAuthentication
 import Combine
+import QuartzCore
 
 private extension NSScreen {
     var displayID: CGDirectDisplayID {
@@ -14,9 +15,6 @@ class PanicModeManager: ObservableObject {
 
     @Published private(set) var isActive = false
 
-    // All apps hidden during panic (windowed non-safelisted).
-    // Tracked so they can be unhidden on release.
-    private var hiddenApps: [NSRunningApplication] = []
     private var isAuthenticating = false
     private var panicTask: Task<Void, Never>?
     private var panicCancellables = Set<AnyCancellable>()
@@ -29,6 +27,17 @@ class PanicModeManager: ObservableObject {
     // Safelisted apps are visible through transparent holes in the maskImage —
     // the overlay level never drops, so non-safelisted apps can never flash above it.
     private var overlayWindows: [CGDirectDisplayID: NSWindow] = [:]
+
+    // Cached "holes for safelisted windows" mask per display. Applying a cached
+    // NSImage is instant; rebuilding from AX + CGContext is not (10–50 ms). Without
+    // this, activating a safelisted app leaves the full-blur mask in place for a
+    // few frames while the rebuild runs — visible as a blur flash.
+    private var cachedSafelistMasks: [CGDirectDisplayID: NSImage] = [:]
+
+    // Pending activation work (scheduled after a brief delay so the newly-focused
+    // app finishes relaying out its window before we rebuild the mask). Tracked so
+    // we can cancel it if another activation comes in first.
+    private var pendingActivationWork: DispatchWorkItem?
 
     // DockLock's own windows (settings, popover) are raised above the overlay during panic
     // so the user can still interact with them.
@@ -98,6 +107,7 @@ class PanicModeManager: ObservableObject {
             $0.alphaValue = 0
             $0.orderOut(nil)
         }
+        cachedSafelistMasks.removeAll()
     }
 
     // MARK: - DockLock Window Level Management
@@ -205,14 +215,49 @@ class PanicModeManager: ObservableObject {
         return NSImage(cgImage: cg, size: screen.frame.size)
     }
 
-    /// Refreshes each overlay's maskImage so safelisted app windows show through unblurred.
-    private func updateOverlayMasks() {
-        for (displayID, win) in overlayWindows {
-            guard let screen = NSScreen.screens.first(where: { $0.displayID == displayID }),
-                  let effectView = win.contentView as? NSVisualEffectView else { continue }
+    /// Rebuilds the cached safelist mask (one per screen) from current AX window rects.
+    /// Expensive — do not call on the hot path of an app-activation notification.
+    private func rebuildMaskCache() {
+        var new: [CGDirectDisplayID: NSImage] = [:]
+        for screen in NSScreen.screens {
             let safeRects = safelistedWindowRects(for: screen)
-            effectView.maskImage = safeRects.isEmpty ? nil : makeMaskImage(for: screen, safeRects: safeRects)
+            guard !safeRects.isEmpty else { continue }
+            new[screen.displayID] = makeMaskImage(for: screen, safeRects: safeRects)
         }
+        cachedSafelistMasks = new
+    }
+
+    /// Applies the right mask to each overlay based on what's frontmost, using only
+    /// the cached mask images. Runs in constant time — safe for activation callbacks.
+    /// If the frontmost app is non-safelisted, applies full blur with no holes —
+    /// preventing safelisted holes from revealing content of overlapping non-safelisted apps.
+    ///
+    /// Pass `frontmostApp` directly from a `didActivate` notification when available —
+    /// `NSWorkspace.shared.frontmostApplication` can briefly lag the notification.
+    private func applyMasks(frontmostApp: NSRunningApplication? = nil) {
+        let resolved = frontmostApp ?? NSWorkspace.shared.frontmostApplication
+        let frontmostIsNonSafelisted = resolved.map { app -> Bool in
+            guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return false }
+            return !isSafelisted(app) && app.activationPolicy == .regular
+        } ?? false
+
+        // Wrap in a CATransaction with actions disabled: setting `maskImage` on an
+        // NSVisualEffectView otherwise triggers an implicit crossfade between masks,
+        // which itself reads as a "blur flash" when swapping nil ↔ holes.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for (displayID, win) in overlayWindows {
+            guard let effectView = win.contentView as? NSVisualEffectView else { continue }
+            effectView.maskImage = frontmostIsNonSafelisted ? nil : cachedSafelistMasks[displayID]
+            effectView.layer?.displayIfNeeded()
+        }
+        CATransaction.commit()
+    }
+
+    /// Refreshes cache then applies. Used by the periodic loop and on panic start.
+    private func updateOverlayMasks() {
+        rebuildMaskCache()
+        applyMasks()
     }
 
     // MARK: - Init
@@ -224,21 +269,13 @@ class PanicModeManager: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Hide apps that launch while panic is active and are not in the safelist.
+        // Refresh the mask when a new app launches during panic — the overlay already covers it.
         NSWorkspace.shared.notificationCenter
             .publisher(for: NSWorkspace.didLaunchApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
-            .filter { [weak self] app in
-                guard let self, self.isActive else { return false }
-                guard let id = app.bundleIdentifier else { return false }
-                return app.activationPolicy == .regular && !self.safelist.bundleIDs.contains(id)
-            }
-            .sink { [weak self] app in
-                app.hide()
-                if !(self?.hiddenApps.contains(where: { $0.bundleIdentifier == app.bundleIdentifier }) ?? false) {
-                    self?.hiddenApps.append(app)
-                }
-            }
+            .filter { [weak self] _ in self?.isActive == true }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.updateOverlayMasks() }
             .store(in: &cancellables)
 
         // Clear panic state on screen lock — user must re-login anyway.
@@ -255,53 +292,10 @@ class PanicModeManager: ObservableObject {
 
     // MARK: - Panic
 
-    private func exitFullScreenIfNeeded(_ app: NSRunningApplication) {
-        let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        var windowsRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axApp, "AXWindows" as CFString, &windowsRef) == .success,
-              let windows = windowsRef as? [AXUIElement] else { return }
-        for window in windows {
-            var valueRef: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &valueRef) == .success,
-                  let ref = valueRef,
-                  CFGetTypeID(ref) == CFBooleanGetTypeID(),
-                  (ref as! CFBoolean) == kCFBooleanTrue else { continue }
-            AXUIElementSetAttributeValue(window, "AXFullScreen" as CFString, kCFBooleanFalse)
-        }
-    }
-
-    private func hasFullScreenWindow(_ app: NSRunningApplication) -> Bool {
-        let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        var windowsRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axApp, "AXWindows" as CFString, &windowsRef) == .success,
-              let windows = windowsRef as? [AXUIElement] else { return false }
-        for window in windows {
-            var valueRef: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &valueRef) == .success,
-                  let ref = valueRef,
-                  CFGetTypeID(ref) == CFBooleanGetTypeID() else { continue }
-            if (ref as! CFBoolean) == kCFBooleanTrue { return true }
-        }
-        return false
-    }
-
     func triggerPanic() {
         guard !isActive else { return }
         LockHistoryStore.shared.record(.panic)
         closeNotificationCenter()
-
-        let ownID = Bundle.main.bundleIdentifier
-        let nonSafelisted = NSWorkspace.shared.runningApplications.filter {
-            guard let id = $0.bundleIdentifier else { return false }
-            return $0.activationPolicy == .regular
-                && !safelist.bundleIDs.contains(id)
-                && id != ownID
-        }
-
-        // Full-screen apps: covered by the always-screenSaver overlay — not hidden.
-        // Windowed apps: hidden so they don't consume resources while covered.
-        hiddenApps = nonSafelisted.filter { !hasFullScreenWindow($0) }
-        hiddenApps.forEach { $0.hide() }
 
         isActive = true
 
@@ -315,13 +309,8 @@ class PanicModeManager: ObservableObject {
         updateOverlayMasks()
         startMonitoringSpaceSwitches()
 
-        // Phase 2: continuously enforce hiding of non-safelisted windowed apps and
-        // refresh the maskImage to track safelisted app window positions.
-        //
-        // The overlay stays at .screenSaver permanently — it is never lowered.
-        // Safelisted apps are visible through transparent holes in maskImage.
-        // This eliminates the flash that occurred when a hidden app briefly appeared
-        // above the old lower-level overlay before the notification handler could react.
+        // Continuously keep overlays at the top of the screenSaver level and refresh
+        // the maskImage so safelisted window positions stay accurate as windows move.
         panicTask?.cancel()
         panicTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 200_000_000)   // 200 ms initial wait
@@ -330,30 +319,7 @@ class PanicModeManager: ObservableObject {
             while !Task.isCancelled {
                 await MainActor.run { [weak self] in
                     guard let self, self.isActive, !self.isAuthenticating else { return }
-
-                    let ownID = Bundle.main.bundleIdentifier
-                    let allApps = NSWorkspace.shared.runningApplications.filter { app in
-                        guard let id = app.bundleIdentifier else { return false }
-                        return app.activationPolicy == .regular
-                            && !self.safelist.bundleIDs.contains(id)
-                            && id != ownID
-                    }
-
-                    // Hide any windowed non-safelisted app that became visible.
-                    // Catches apps unhidden by the user and apps that exited full-screen.
-                    let windowedVisible = allApps.filter { !$0.isHidden && !self.hasFullScreenWindow($0) }
-                    windowedVisible.forEach { app in
-                        if !self.hiddenApps.contains(where: { $0.bundleIdentifier == app.bundleIdentifier }) {
-                            self.hiddenApps.append(app)
-                        }
-                        app.hide()
-                    }
-
-                    // Keep overlays at the top of the screenSaver level.
                     self.overlayWindows.values.forEach { $0.orderFrontRegardless() }
-
-                    // Refresh mask: update transparent holes for safelisted app windows
-                    // so their current positions/sizes are reflected accurately.
                     self.updateOverlayMasks()
                 }
                 try? await Task.sleep(nanoseconds: 250_000_000)   // 250 ms
@@ -377,38 +343,21 @@ class PanicModeManager: ObservableObject {
 
     private func startMonitoringSpaceSwitches() {
         let center = NSWorkspace.shared.notificationCenter
-        let ownID = Bundle.main.bundleIdentifier
 
-        // If a windowed non-safelisted app gets unhidden by external means, re-hide it.
-        // The overlay at screenSaver level already covers it visually; calling hide()
-        // removes the window from the compositor entirely.
-        center.publisher(for: NSWorkspace.didUnhideApplicationNotification)
-            .receive(on: DispatchQueue.main)
-            .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
-            .filter { [weak self] app in
-                guard let self else { return false }
-                return !self.isSafelisted(app)
-                    && app.activationPolicy == .regular
-                    && app.bundleIdentifier != ownID
-                    && !self.hasFullScreenWindow(app)
-            }
-            .sink { [weak self] app in
-                guard let self else { return }
-                self.overlayWindows.values.forEach { $0.orderFrontRegardless() }
-                app.hide()
-            }
-            .store(in: &panicCancellables)
-
-        // If a non-safelisted app activates, ensure it is hidden.
+        // On window switch, immediately update the mask: opens a hole for safelisted apps,
+        // keeps the overlay covering non-safelisted apps — no waiting for the 250 ms loop.
+        //
+        // No `.receive(on: DispatchQueue.main)`: NSWorkspace notifications are already
+        // posted on the main thread, and adding the hop queues our handler for the NEXT
+        // runloop iteration — enough latency for the compositor to render one frame with
+        // the new window order but the stale mask (the "blur flash").
         center.publisher(for: NSWorkspace.didActivateApplicationNotification)
-            .receive(on: DispatchQueue.main)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
             .sink { [weak self] app in self?.updateBlurOverlay(for: app) }
             .store(in: &panicCancellables)
 
         // On Space switch, bring overlays to the front of the screenSaver level.
         center.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self, self.isActive, !self.isAuthenticating else { return }
                 self.overlayWindows.values.forEach { $0.orderFrontRegardless() }
@@ -421,17 +370,86 @@ class PanicModeManager: ObservableObject {
     }
 
     private func updateBlurOverlay(for app: NSRunningApplication) {
-        guard isActive else { return }
-        if isAuthenticating { return }
+        guard isActive, !isAuthenticating else { return }
         guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
 
+        // A previous activation may have a pending "reapply" queued. Cancel it
+        // so a rapid second switch doesn't stomp on this one's final state.
+        pendingActivationWork?.cancel()
+        pendingActivationWork = nil
+
         if !isSafelisted(app) && app.activationPolicy == .regular {
-            // Overlay is already at screenSaver (1000) — just bring it to the very front
-            // and hide the app so it doesn't consume resources behind the overlay.
+            // Non-safelisted: apply full blur synchronously. Nothing to settle,
+            // so no delay needed — the user never sees an un-blurred frame.
+            setOverlayAlphaInstant(1)
             overlayWindows.values.forEach { $0.orderFrontRegardless() }
-            if !hasFullScreenWindow(app) {
-                app.hide()
+            applyMasks(frontmostApp: app)
+        } else {
+            // Safelisted: clear the blur immediately (alpha 0), then re-check and
+            // re-apply after the new window finishes its on-activation relayout.
+            //
+            // During the delay the cached mask is not shown at all, so a stale or
+            // narrow hole can't reveal itself. When the delay expires we rebuild
+            // from the settled AX rect and snap the overlay back in with correct
+            // holes. Both alpha transitions are wrapped in a disabled-actions
+            // CATransaction + forced display so they happen this frame, not via
+            // an implicit Core Animation fade.
+            setOverlayAlphaInstant(0)
+
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, self.isActive, !self.isAuthenticating else { return }
+
+                // Re-evaluate frontmost at fire time — the user may have switched
+                // again during the delay; rebuild for whoever is actually frontmost.
+                let current = NSWorkspace.shared.frontmostApplication
+                let currentIsNonSafelisted = current.map { c -> Bool in
+                    guard c.bundleIdentifier != Bundle.main.bundleIdentifier else { return false }
+                    return !self.isSafelisted(c) && c.activationPolicy == .regular
+                } ?? false
+
+                if !currentIsNonSafelisted {
+                    self.rebuildMaskCache()
+                }
+                self.applyMasks(frontmostApp: current)
+                // Fade back in instead of snapping — any remaining inaccuracy in the
+                // mask reads as a gentle reveal rather than a sharp flash. The 250 ms
+                // background loop re-rebuilds the cache mid-fade, so slow-settling
+                // windows correct themselves while the overlay is still transparent.
+                self.fadeOverlayAlpha(to: 1, duration: 0.18)
+                self.pendingActivationWork = nil
             }
+            pendingActivationWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.07, execute: work)
+        }
+    }
+
+    /// Smoothly fades the overlay alpha over `duration` seconds. Uses the window
+    /// animator proxy so the change is driven by the display link, not an abrupt set.
+    private func fadeOverlayAlpha(to alpha: CGFloat, duration: TimeInterval) {
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            for win in overlayWindows.values {
+                win.animator().alphaValue = alpha
+            }
+        }
+    }
+
+    /// Sets overlay alpha with no implicit animation — applied this frame.
+    /// macOS wraps NSWindow.alphaValue in an implicit animation inside an
+    /// NSAnimationContext; wrapping in a disabled-actions CATransaction and
+    /// forcing the backing layer to display suppresses the fade.
+    private func setOverlayAlphaInstant(_ alpha: CGFloat) {
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0
+            ctx.allowsImplicitAnimation = false
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            for win in overlayWindows.values {
+                win.alphaValue = alpha
+                win.contentView?.layer?.displayIfNeeded()
+            }
+            CATransaction.commit()
         }
     }
 
@@ -469,8 +487,8 @@ class PanicModeManager: ObservableObject {
     private func unhideAll() {
         panicTask?.cancel()
         panicTask = nil
-        hiddenApps.forEach { $0.unhide() }
-        hiddenApps = []
+        pendingActivationWork?.cancel()
+        pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
         restoreDockLockWindows()
@@ -481,7 +499,8 @@ class PanicModeManager: ObservableObject {
     private func clearWithoutUnhiding() {
         panicTask?.cancel()
         panicTask = nil
-        hiddenApps = []
+        pendingActivationWork?.cancel()
+        pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
         restoreDockLockWindows()

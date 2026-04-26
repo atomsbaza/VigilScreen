@@ -19,6 +19,7 @@ build/
 *.ipa
 *.dSYM.zip
 *.dSYM
+*.xcarchive
 
 # CocoaPods / SPM
 Pods/
@@ -43,7 +44,9 @@ fastlane/test_output
 .claude/
 
 # Local notes
+PLAN.md
 REDDIT_POST.md
+BUYMEACOFFEE_POST.md
 release_*.md
 
 # Exported builds

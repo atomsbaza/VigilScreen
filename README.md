@@ -22,11 +22,30 @@ Auto-lock your Mac when you step away from your desk.
 - **Auto-triggers Panic Mode** before locking — apps stay hidden even if the screen is woken without authentication
 
 ### 🚨 **Panic Mode**
-Hide sensitive apps instantly with one keystroke.
-- Single hotkey (default: `⌘+Shift+L`) hides Terminal, IDE, browsers, Slack, etc.
-- Customizable blocklist — choose which apps to protect
+Blur everything instantly with one keystroke — only your trusted apps stay visible.
+- Single hotkey (default: `⌘+Shift+L`) blurs all screens immediately and hides non-safelisted apps
+- **Safelist model**: apps you trust (Terminal, IDE, browsers, etc.) remain visible and interactive above the blur; everything else vanishes
+- No flash, no polling — blur appears on all screens in a single frame; overlay resets instantly on safelisted app switch and fades back in after a short settling window
 - Release with Touch ID for added security
-- Hides even full-screen applications
+
+### 📸 **Intruder Capture**
+Automatically photographs anyone who fails a panic-release attempt.
+- Captures a photo from the front camera on wrong Touch ID or password attempt
+- Saved locally to `~/Pictures/DockLock Captures/` — never uploaded
+- Sends a macOS notification so you know even when you're away from the History tab
+- Visible in the History log with thumbnail — tap to enlarge
+- Toggle on/off in Settings → Panic Mode
+
+### 📋 **Lock History**
+A full audit log of every lock event.
+- Records Proximity Lock triggers, Panic Mode activations, and failed unlock attempts
+- View in Settings → History
+- Clear at any time
+
+### 📊 **Menubar Live Stats**
+At-a-glance Bluetooth and countdown info next to the menu bar icon.
+- Shows live RSSI and lock countdown without opening the popover
+- Toggle in Settings → General
 
 ### 🎉 **First-Run Onboarding**
 Get set up in seconds with a guided welcome checklist.
@@ -41,7 +60,8 @@ Native macOS 26 visual design when available.
 - Graceful fallback to standard SwiftUI on macOS 15–25
 
 ### 🔐 **Security First**
-- **Local-first**: All processing happens on your Mac. No cloud sync, no network calls
+- **Local-first**: All processing happens on your Mac. No network calls, no telemetry
+- **iCloud Sync** *(v0.2.0)*: Settings, App Safelist, and Lock History sync across your Macs via `NSUbiquitousKeyValueStore` — never sent to third parties
 - **Open source**: Community audits the code
 - **Zero dependencies**: Pure Apple frameworks only
 - **Privacy-focused**: We don't collect telemetry or analytics
@@ -105,8 +125,8 @@ open DockLock.xcodeproj
 ### 2. **Set Up Panic Mode**
 
 1. Go to **Panic Mode** tab
-2. Check apps you want to hide (default: Terminal, Xcode, VS Code, Safari, Chrome, Slack, Notion)
-3. Add more apps by clicking **+** and selecting from running apps
+2. Review the **App Safelist** — apps in this list stay visible above the blur (default: Terminal, Xcode, VS Code, Safari, Chrome, Slack, Notion)
+3. Add trusted apps by clicking **+** and selecting from running apps, or remove ones you don't need
 4. Customize keyboard shortcut (default: `⌘+Shift+L`)
 5. Toggle **Require Touch ID to release** for extra security
 
@@ -132,8 +152,8 @@ DockLock/
 │
 ├── Features/
 │   ├── PanicMode/
-│   │   ├── PanicModeManager.swift # Hide/unhide app logic (@MainActor)
-│   │   ├── AppBlocklist.swift     # Managed list of apps to hide
+│   │   ├── PanicModeManager.swift # Blur/unhide logic (@MainActor)
+│   │   ├── AppBlocklist.swift     # Safelist — apps that stay visible during panic
 │   │   └── PanicModeView.swift    # Settings UI
 │   │
 │   └── ProximityLock/
@@ -145,7 +165,10 @@ DockLock/
 ├── Core/
 │   ├── LockEngine.swift           # Sends lock screen command
 │   ├── SettingsStore.swift        # UserDefaults wrapper
-│   └── PermissionManager.swift    # Requests OS permissions (@MainActor)
+│   ├── PermissionManager.swift    # Requests OS permissions (@MainActor)
+│   ├── IntruderCaptureManager.swift # Front-camera capture on failed auth
+│   ├── LockHistoryStore.swift     # Persisted audit log of lock events
+│   └── CloudSyncStore.swift       # iCloud KV sync coordinator (NSUbiquitousKeyValueStore)
 │
 ├── Settings/
 │   └── SettingsView.swift         # Main settings window
@@ -192,36 +215,47 @@ DockLock requests only the permissions it needs:
 | **Bluetooth** | To scan for nearby iPhone/Watch | When enabling Proximity Lock |
 | **Accessibility** | To register global keyboard shortcut | When customizing Panic Mode hotkey |
 | **Face ID/Touch ID** | To authenticate panic release | When enabling Panic Mode |
+| **Camera** | Intruder Capture photo on failed unlock | On first failed auth attempt (lazy) |
 
-**What we DON'T ask for:** Camera, Microphone, Location, Network
+**What we DON'T ask for:** Microphone, Location, Network
 
 ---
 
 ## FAQ
 
 **Q: Does DockLock work with multiple Macs?**
-A: Currently no — MVP focuses on single-Mac setup. iCloud Sync is planned for Phase 2.
+A: Yes — iCloud Sync (added in v0.2.0) automatically syncs Settings, App Safelist, and Lock History across all your Macs.
 
 **Q: What if my iPhone is out of battery?**
 A: Proximity Lock won't trigger. Panic Mode still works independently.
 
-**Q: Can I hide custom apps?**
-A: Yes! Click **+** in Panic Mode settings and select from running apps.
+**Q: Which apps stay visible during Panic Mode?**
+A: Only apps in your **Safelist** remain visible above the blur (default: Terminal, Xcode, VS Code, Safari, Chrome, Slack, Notion). Everything else is hidden. Add or remove apps in Panic Mode settings.
 
 **Q: Is my data safe?**
 A: Completely safe. All processing is local. No cloud, no analytics, no telemetry. It's open source — audit the code yourself.
 
 **Q: Does it work on Apple Silicon?**
-A: Yes. Optimized for M1/M2/M3 Macs.
+A: Yes. Optimized for M1/M2/M3/M4 Macs.
+
+---
+
+## Known Issues
+
+| Issue | Status | Workaround |
+|---|---|---|
+| **Panic Mode — secondary monitor not covered when connected mid-panic** | Open — planned fix in v0.2.2 | Overlays are created once at panic start. Re-trigger Panic Mode (`⌘+Shift+L` twice) after connecting the display. |
+| **Panic Mode — blur flash when switching to a safelisted app** | Fixed in v0.2.1 | — |
 
 ---
 
 ## Privacy & Security
 
-### No Cloud Storage
-- Settings stay on your Mac only
+### Privacy-First Storage
+- Settings, Safelist, and History sync via iCloud KV store (v0.2.0) — no third-party servers
 - No accounts, no logins
 - Bluetooth pairing info in system Keychain (encrypted)
+- Intruder photos stored locally only (`~/Pictures/DockLock Captures/`) — never synced
 
 ### No Telemetry
 - No usage tracking, crash reporting, or analytics
@@ -255,24 +289,31 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
-### ✅ v0.1.0 (MVP)
-- Panic Mode with full-screen blur overlay
+### ✅ v0.1.0
+- Panic Mode — instant full-screen blur on all screens, safelist keeps trusted apps visible
 - Proximity Lock (Bluetooth) — auto-triggers Panic Mode before locking
-- Local settings
-- First-run onboarding
+- Intruder Capture — front-camera photo on failed unlock, saved to `~/Pictures/DockLock Captures/`
+- Lock History — full audit log of lock events
+- Menubar Live Stats — live RSSI + countdown in menu bar
+- Local settings, first-run onboarding
 - Liquid Glass UI (macOS 26)
 - Swift 6 strict concurrency
 - Apple Privacy Manifest (PrivacyInfo.xcprivacy)
 
-### 🚀 Phase 2
-- Menubar stats
-- Lock history log
-- Intruder Capture
+### ✅ v0.2.0
+- iCloud Sync — Settings, App Safelist, and Lock History sync across Macs via `NSUbiquitousKeyValueStore`
+- Notarized release — no Gatekeeper warning
+
+### ✅ v0.2.1 (Current)
+- Fix: eliminated overlay flash when switching to a safelisted app during Panic Mode — overlay alpha resets instantly on activation, mask rebuilds after a 70 ms settling window, then fades back in over 180 ms
+
+### 🔜 v0.2.2 (Planned)
+- Fix: blur overlay for secondary monitors connected after Panic Mode is already active
 
 ### 💡 Future
-- iCloud Sync
-- Custom app modes
-- Third-party integrations
+- Custom app modes (office, café, etc.)
+- Multiple paired Bluetooth devices (iPhone + Apple Watch)
+- Shoulder surfing detection (Core ML + Vision)
 
 ---
 

@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 struct PanicModeView: View {
-    @ObservedObject private var blocklist = AppBlocklist.shared
+    @ObservedObject private var safelist = AppSafelist.shared
     @ObservedObject private var settings = SettingsStore.shared
     @ObservedObject private var manager = PanicModeManager.shared
     @State private var showAppPicker = false
@@ -13,9 +13,29 @@ struct PanicModeView: View {
             Section("Behaviour") {
                 Toggle("Require Touch ID to release", isOn: $settings.panicRequiresTouchID)
                 Toggle("Enable ⌘⇧L global shortcut", isOn: $settings.panicShortcutEnabled)
+                Toggle("Capture photo on failed unlock", isOn: $settings.intruderCaptureEnabled)
             }
 
             Section {
+                // Preview: how many apps will be hidden (all regular apps not in the safelist)
+                let appsToHide = NSWorkspace.shared.runningApplications.filter {
+                    guard let id = $0.bundleIdentifier else { return false }
+                    return !safelist.bundleIDs.contains(id) && $0.activationPolicy == .regular
+                }
+                if !manager.isActive && !appsToHide.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "eye.slash")
+                            .foregroundStyle(.secondary)
+                        Text("\(appsToHide.count) app\(appsToHide.count == 1 ? "" : "s") will be hidden:")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Text(appsToHide.compactMap { $0.localizedName }.joined(separator: ", "))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+
                 Button(manager.isActive ? "Release Panic Mode" : "Trigger Panic Mode") {
                     if manager.isActive {
                         manager.releasePanic()
@@ -29,22 +49,24 @@ struct PanicModeView: View {
             } header: {
                 Text("Test")
             } footer: {
-                Text("You can also press ⌘⇧L from anywhere.")
+                Text(manager.isActive ? "Panic Mode is active. Press Release or ⌘⇧L to restore apps." : "You can also press ⌘⇧L from anywhere.")
                     .foregroundStyle(.secondary)
             }
 
             Section {
-                let ids = blocklist.bundleIDs.sorted()
+                let ids = safelist.bundleIDs.sorted()
                 if ids.isEmpty {
-                    Text("No apps in blocklist")
+                    Text("No apps in safelist")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(ids, id: \.self) { id in
-                        BlocklistRow(bundleID: id)
+                        SafelistRow(bundleID: id) {
+                            safelist.remove(id)
+                        }
                     }
                     .onDelete { indexSet in
                         let sorted = ids
-                        indexSet.forEach { blocklist.remove(sorted[$0]) }
+                        indexSet.forEach { safelist.remove(sorted[$0]) }
                     }
                 }
 
@@ -57,25 +79,25 @@ struct PanicModeView: View {
                 }
             } header: {
                 HStack {
-                    Text("App Blocklist")
+                    Text("App Safelist")
                     Spacer()
                     Button {
-                        blocklist.importFromFile()
+                        safelist.importFromFile()
                     } label: {
                         Label("Import", systemImage: "square.and.arrow.down")
                             .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.plain)
-                    .help("Import blocklist from JSON file")
+                    .help("Import safelist from JSON file")
 
                     Button {
-                        blocklist.exportToFile()
+                        safelist.exportToFile()
                     } label: {
                         Label("Export", systemImage: "square.and.arrow.up")
                             .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.plain)
-                    .help("Export blocklist to JSON file")
+                    .help("Export safelist to JSON file")
 
                     Button {
                         showAppPicker = true
@@ -98,15 +120,18 @@ struct PanicModeView: View {
     private func addManual() {
         let trimmed = newBundleID.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        blocklist.add(trimmed)
+        safelist.add(trimmed)
         newBundleID = ""
     }
 }
 
-// MARK: - Blocklist row with app icon + name
+// MARK: - Safelist row with app icon + name
 
-private struct BlocklistRow: View {
+private struct SafelistRow: View {
     let bundleID: String
+    let onRemove: () -> Void
+
+    @State private var isHovering = false
 
     private var runningApp: NSRunningApplication? {
         NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == bundleID }
@@ -135,7 +160,16 @@ private struct BlocklistRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Spacer()
+            Button(action: onRemove) {
+                Image(systemName: "minus.circle.fill")
+                    .foregroundStyle(.red)
+            }
+            .buttonStyle(.plain)
+            .opacity(isHovering ? 1 : 0)
+            .help("Remove from safelist")
         }
+        .onHover { isHovering = $0 }
     }
 }
 
@@ -143,14 +177,14 @@ private struct BlocklistRow: View {
 
 private struct RunningAppPickerSheet: View {
     @Binding var isPresented: Bool
-    @ObservedObject private var blocklist = AppBlocklist.shared
+    @ObservedObject private var safelist = AppSafelist.shared
 
     private var candidates: [NSRunningApplication] {
         NSWorkspace.shared.runningApplications
             .filter { app in
                 app.activationPolicy == .regular &&
                 app.bundleIdentifier != nil &&
-                !blocklist.bundleIDs.contains(app.bundleIdentifier!)
+                !safelist.bundleIDs.contains(app.bundleIdentifier!)
             }
             .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
     }
@@ -158,7 +192,7 @@ private struct RunningAppPickerSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Running Apps")
+                Text("Add to Safelist")
                     .font(.headline)
                 Spacer()
                 Button("Done") { isPresented = false }
@@ -168,7 +202,7 @@ private struct RunningAppPickerSheet: View {
             Divider()
 
             if candidates.isEmpty {
-                Text("All running apps are already in the blocklist.")
+                Text("All running apps are already in the safelist.")
                     .foregroundStyle(.secondary)
                     .padding()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -189,7 +223,7 @@ private struct RunningAppPickerSheet: View {
                         Spacer()
                         Button("Add") {
                             if let id = app.bundleIdentifier {
-                                blocklist.add(id)
+                                safelist.add(id)
                             }
                         }
                         .buttonStyle(.bordered)

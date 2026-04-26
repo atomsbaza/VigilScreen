@@ -23,6 +23,15 @@
                 <string>1D8F.1</string>
             </array>
         </dict>
+        <!-- Camera: used on-device to detect a second face for Shoulder Surfing Detection; no images stored or transmitted -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryCamera</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>1A2B.1</string>
+            </array>
+        </dict>
         <!-- Keychain: used to persist paired Bluetooth device UUID locally -->
         <dict>
             <key>NSPrivacyAccessedAPIType</key>

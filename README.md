@@ -2,7 +2,7 @@
 
 🛡️ **Auto-lock your Mac on proximity + panic-hide sensitive apps with one hotkey**
 
-A privacy-first macOS security app for developers, consultants, and anyone handling sensitive data (source code, credentials, API keys, documents).
+A privacy-first macOS security app.
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6.0+](https://img.shields.io/badge/Swift-6.0%2B-orange.svg)](#tech-stack)
@@ -35,6 +35,14 @@ Automatically photographs anyone who fails a panic-release attempt.
 - Sends a macOS notification so you know even when you're away from the History tab
 - Visible in the History log with thumbnail — tap to enlarge
 - Toggle on/off in Settings → Panic Mode
+
+### 👀 **Shoulder Surfing Detection**
+Automatically triggers Panic Mode when someone looks over your shoulder.
+- Continuous face detection via Vision + AVFoundation — no camera upload, fully local
+- Configurable sensitivity and minimum detection duration before triggering
+- Auto-release: Panic Mode lifts automatically (no Touch ID required) once the threat clears for a set delay (3–30 s)
+- Lock History records shoulder surfing events with a purple badge
+- Toggle on/off in Settings → Shoulder Surfing
 
 ### 📋 **Lock History**
 A full audit log of every lock event.
@@ -304,16 +312,22 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 - iCloud Sync — Settings, App Safelist, and Lock History sync across Macs via `NSUbiquitousKeyValueStore`
 - Notarized release — no Gatekeeper warning
 
-### ✅ v0.2.1 (Current)
+### ✅ v0.2.1
 - Fix: eliminated overlay flash when switching to a safelisted app during Panic Mode — overlay alpha resets instantly on activation, mask rebuilds after a 70 ms settling window, then fades back in over 180 ms
 
-### 🔜 v0.2.2 (Planned)
+### ✅ v0.3.0 (Current)
+- Shoulder Surfing Detection — continuous face detection via Vision + AVFoundation; triggers Panic Mode automatically when 2+ faces are detected for a configurable duration
+- Sensitivity slider and live face count in Settings → Shoulder Surfing tab
+- Auto-release: camera stays running during Panic Mode; releases without Touch ID after the threat clears for a set delay (3–30 s)
+- Lock History shows shoulder surfing events with a purple badge
+- Camera API declared in PrivacyInfo.xcprivacy
+
+### 🔜 v0.3.1 (Planned)
 - Fix: blur overlay for secondary monitors connected after Panic Mode is already active
 
 ### 💡 Future
 - Custom app modes (office, café, etc.)
 - Multiple paired Bluetooth devices (iPhone + Apple Watch)
-- Shoulder surfing detection (Core ML + Vision)
 
 ---
 

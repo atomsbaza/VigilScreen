@@ -484,6 +484,13 @@ class PanicModeManager: ObservableObject {
         }
     }
 
+    /// Releases panic mode immediately without biometric authentication.
+    /// Used by ShoulderSurfingDetector auto-release when the threat is confirmed gone.
+    func releasePanicWithoutAuth() {
+        guard isActive, !isAuthenticating else { return }
+        unhideAll()
+    }
+
     private func unhideAll() {
         panicTask?.cancel()
         panicTask = nil

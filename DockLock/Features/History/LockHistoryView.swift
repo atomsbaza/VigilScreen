@@ -104,6 +104,7 @@ struct LockHistoryView: View {
         case .proximity:       return "antenna.radiowaves.left.and.right"
         case .panic:           return "eye.slash"
         case .intruderCapture: return "person.fill.questionmark"
+        case .shoulderSurfer:  return "eye.trianglebadge.exclamationmark"
         }
     }
 
@@ -112,6 +113,7 @@ struct LockHistoryView: View {
         case .proximity:       return .blue
         case .panic:           return .red
         case .intruderCapture: return .orange
+        case .shoulderSurfer:  return .purple
         }
     }
 
@@ -120,6 +122,7 @@ struct LockHistoryView: View {
         case .proximity:       return "Proximity Lock"
         case .panic:           return "Panic Mode"
         case .intruderCapture: return "Failed Unlock Attempt"
+        case .shoulderSurfer:  return "Shoulder Surfing Detected"
         }
     }
 }

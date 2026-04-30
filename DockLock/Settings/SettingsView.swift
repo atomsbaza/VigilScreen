@@ -16,6 +16,9 @@ struct SettingsView: View {
                 NavigationLink(destination: ProximityView()) {
                     Label("Proximity Lock", systemImage: "antenna.radiowaves.left.and.right")
                 }
+                NavigationLink(destination: ShoulderSurfingView()) {
+                    Label("Shoulder Surfing", systemImage: "eye.trianglebadge.exclamationmark")
+                }
                 NavigationLink(destination: LockHistoryView()) {
                     Label("History", systemImage: "clock")
                 }

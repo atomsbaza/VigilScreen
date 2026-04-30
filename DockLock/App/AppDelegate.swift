@@ -24,6 +24,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         _ = PanicModeManager.shared
         _ = LockTrigger.shared
+        _ = ShoulderSurfingDetector.shared
 
         CloudSyncStore.shared.synchronize()
     }

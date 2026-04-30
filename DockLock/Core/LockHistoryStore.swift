@@ -5,6 +5,7 @@ enum LockTriggerType: String, Codable {
     case proximity
     case panic
     case intruderCapture
+    case shoulderSurfer
 }
 
 struct LockEvent: Identifiable, Codable {
@@ -96,8 +97,8 @@ class LockHistoryStore: ObservableObject {
     private func save() {
         guard let data = try? encoder.encode(events) else { return }
         UserDefaults.standard.set(data, forKey: key)
-        // Exclude intruderCapture events from iCloud — they contain security incident timestamps
-        let cloudEvents = events.filter { $0.trigger != .intruderCapture }
+        // Exclude intruderCapture and shoulderSurfer events from iCloud — security incident data
+        let cloudEvents = events.filter { $0.trigger != .intruderCapture && $0.trigger != .shoulderSurfer }
         if let cloudData = try? encoder.encode(cloudEvents) {
             NSUbiquitousKeyValueStore.default.set(cloudData, forKey: key)
         }

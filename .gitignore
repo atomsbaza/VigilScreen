@@ -46,6 +46,7 @@ fastlane/test_output
 # Local notes
 PLAN.md
 plan_*.md
+apple_review_*.md
 REDDIT_POST.md
 BUYMEACOFFEE_POST.md
 release_*.md

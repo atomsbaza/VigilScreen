@@ -46,32 +46,40 @@ struct MenuBarView: View {
 
     private var panicButton: some View {
         let active = panicManager.isActive
-        let action = { active ? panicManager.releasePanic() : panicManager.triggerPanic() }
-        let label = Label(
-            active ? "Release Panic Mode" : "Panic Mode",
-            systemImage: active ? "eye" : "eye.slash"
-        )
-        .fontWeight(.medium)
+        let color: Color = active ? .green : .red
+
+        let buttonLabel = HStack(spacing: 0) {
+            Label(
+                active ? "Release" : "Panic Mode",
+                systemImage: active ? "eye" : "exclamationmark.shield.fill"
+            )
+            .fontWeight(.semibold)
+            Spacer()
+            Text("⌘⇧L")
+                .font(.caption)
+                .fontWeight(.medium)
+                .opacity(0.65)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
 
         return Group {
             if #available(macOS 26, *) {
-                // Liquid Glass tinted button for macOS 26+
-                Button(action: action) { label.foregroundColor(active ? .green : .red) }
-                    .glassEffect(
-                        .regular
-                            .tint(active ? Color.green : Color.red)
-                            .interactive(),
-                        in: .rect(cornerRadius: 6)
-                    )
-                    .buttonStyle(.plain)
+                Button { active ? panicManager.releasePanic() : panicManager.triggerPanic() } label: {
+                    buttonLabel.foregroundColor(active ? .green : .white)
+                }
+                .glassEffect(
+                    .regular.tint(color).interactive(),
+                    in: .rect(cornerRadius: 8)
+                )
+                .buttonStyle(.plain)
             } else {
-                Button(action: action) {
-                    label
-                        .background((active ? Color.green : Color.red).opacity(0.15))
-                        .foregroundColor(active ? .green : .red)
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                Button { active ? panicManager.releasePanic() : panicManager.triggerPanic() } label: {
+                    buttonLabel
+                        .background(color.opacity(active ? 0.18 : 0.85))
+                        .foregroundColor(active ? color : .white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }

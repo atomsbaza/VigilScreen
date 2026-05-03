@@ -25,7 +25,7 @@ Auto-lock your Mac when you step away from your desk.
 Blur everything instantly with one keystroke — only your trusted apps stay visible.
 - Single hotkey (default: `⌘+Shift+L`) blurs all screens immediately and hides non-safelisted apps
 - **Safelist model**: apps you trust (Terminal, IDE, browsers, etc.) remain visible and interactive above the blur; everything else vanishes
-- No flash, no polling — blur appears on all screens in a single frame; overlay resets instantly on safelisted app switch and fades back in after a short settling window
+- **Fullscreen & Chromium support**: safelisted apps remain visible whether they are in a normal window, fullscreen Space, or are Chromium-based (Chrome, Edge, Brave, Arc)
 - Release with Touch ID for added security
 
 ### 📸 **Intruder Capture**
@@ -194,7 +194,7 @@ DockLock uses the macOS 26 Liquid Glass design language when available, with a c
 
 | Element | macOS 26 | macOS 15–25 |
 |---|---|---|
-| Panic button | `.glassEffect(.regular.tint(...).interactive())` | Colored `.background` + rounded clip |
+| Panic button | `.glassEffect(.regular.tint(...).interactive())` with `exclamationmark.shield.fill` icon + `⌘⇧L` shortcut hint | Filled `.background` (red/green) + rounded clip + `⌘⇧L` hint |
 | Onboarding CTA | `.buttonStyle(.glassProminent)` | `.buttonStyle(.borderedProminent)` |
 
 All glass effects are gated with `#available(macOS 26, *)` — the app compiles and runs identically on both targets.
@@ -222,7 +222,7 @@ DockLock requests only the permissions it needs:
 |---|---|---|
 | **Bluetooth** | To scan for nearby iPhone/Watch | When enabling Proximity Lock |
 | **Accessibility** | To register global keyboard shortcut | When customizing Panic Mode hotkey |
-| **Face ID/Touch ID** | To authenticate panic release | When enabling Panic Mode |
+| **Touch ID** | To authenticate panic release | When enabling Panic Mode |
 | **Camera** | Intruder Capture photo on failed unlock | On first failed auth attempt (lazy) |
 
 **What we DON'T ask for:** Microphone, Location, Network
@@ -252,8 +252,7 @@ A: Yes. Optimized for M1/M2/M3/M4 Macs.
 
 | Issue | Status | Workaround |
 |---|---|---|
-| **Panic Mode — secondary monitor not covered when connected mid-panic** | Open — planned fix in v0.2.2 | Overlays are created once at panic start. Re-trigger Panic Mode (`⌘+Shift+L` twice) after connecting the display. |
-| **Panic Mode — blur flash when switching to a safelisted app** | Fixed in v0.2.1 | — |
+| **Panic Mode — secondary monitor not covered when connected mid-panic** | Open — planned fix in v0.3.1 | Overlays are created once at panic start. Re-trigger Panic Mode (`⌘+Shift+L` twice) after connecting the display. |
 
 ---
 

@@ -131,7 +131,14 @@ class PanicModeManager: ObservableObject {
     /// Returns window rects for all visible safelisted apps, in screen-local coordinates.
     private func safelistedWindowRects(for screen: NSScreen) -> [NSRect] {
         let mainH = NSScreen.main?.frame.height ?? 0
+        let screenBounds = NSRect(origin: .zero, size: screen.frame.size)
         var rects: [NSRect] = []
+
+        // CGWindowList snapshot — queried once per call, shared across all apps.
+        // More reliable than AX for apps with limited accessibility support (e.g. Chrome/Electron).
+        let cgWindowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] ?? []
 
         for app in NSWorkspace.shared.runningApplications {
             guard let id = app.bundleIdentifier,
@@ -141,40 +148,78 @@ class PanicModeManager: ObservableObject {
 
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var windowsRef: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(axApp, "AXWindows" as CFString, &windowsRef) == .success,
-                  let windows = windowsRef as? [AXUIElement] else { continue }
+            let axOK = AXUIElementCopyAttributeValue(axApp, "AXWindows" as CFString, &windowsRef) == .success
+            let axWindows = windowsRef as? [AXUIElement] ?? []
 
-            for window in windows {
-                var posRef: CFTypeRef?
-                var sizeRef: CFTypeRef?
-                guard AXUIElementCopyAttributeValue(window, "AXPosition" as CFString, &posRef) == .success,
-                      AXUIElementCopyAttributeValue(window, "AXSize" as CFString, &sizeRef) == .success,
-                      let posAX = posRef, let sizeAX = sizeRef else { continue }
+            if axOK && !axWindows.isEmpty {
+                for window in axWindows {
+                    // Fullscreen windows occupy the entire screen; punch a full-screen hole
+                    // rather than going through the normal coordinate conversion (which can
+                    // produce out-of-bounds rects for fullscreen AX positions).
+                    var fullscreenRef: CFTypeRef?
+                    if AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &fullscreenRef) == .success,
+                       let isFS = fullscreenRef as? Bool, isFS {
+                        rects.append(NSRect(origin: .zero, size: screen.frame.size))
+                        continue
+                    }
 
-                var axPos  = CGPoint.zero
-                var axSize = CGSize.zero
-                guard CFGetTypeID(posAX) == AXValueGetTypeID(),
-                      CFGetTypeID(sizeAX) == AXValueGetTypeID() else { continue }
-                AXValueGetValue(posAX as! AXValue, .cgPoint, &axPos)
-                AXValueGetValue(sizeAX as! AXValue, .cgSize,  &axSize)
+                    var posRef: CFTypeRef?
+                    var sizeRef: CFTypeRef?
+                    guard AXUIElementCopyAttributeValue(window, "AXPosition" as CFString, &posRef) == .success,
+                          AXUIElementCopyAttributeValue(window, "AXSize" as CFString, &sizeRef) == .success,
+                          let posAX = posRef, let sizeAX = sizeRef else { continue }
 
-                // Convert AX coords (top-left origin, y increases downward) to
-                // Quartz display coords (bottom-left origin, y increases upward).
-                let quartzRect = NSRect(
-                    x: axPos.x,
-                    y: mainH - axPos.y - axSize.height,
-                    width: axSize.width,
-                    height: axSize.height
-                )
-                // Translate to overlay window-local coordinates (origin = screen.frame.origin).
-                let localRect = NSRect(
-                    x: quartzRect.origin.x - screen.frame.origin.x,
-                    y: quartzRect.origin.y - screen.frame.origin.y,
-                    width: quartzRect.size.width,
-                    height: quartzRect.size.height
-                )
-                let clipped = localRect.intersection(NSRect(origin: .zero, size: screen.frame.size))
-                if !clipped.isNull { rects.append(clipped) }
+                    var axPos  = CGPoint.zero
+                    var axSize = CGSize.zero
+                    guard CFGetTypeID(posAX) == AXValueGetTypeID(),
+                          CFGetTypeID(sizeAX) == AXValueGetTypeID() else { continue }
+                    AXValueGetValue(posAX as! AXValue, .cgPoint, &axPos)
+                    AXValueGetValue(sizeAX as! AXValue, .cgSize,  &axSize)
+
+                    // Convert AX coords (top-left origin, y increases downward) to
+                    // Quartz display coords (bottom-left origin, y increases upward).
+                    let quartzRect = NSRect(
+                        x: axPos.x,
+                        y: mainH - axPos.y - axSize.height,
+                        width: axSize.width,
+                        height: axSize.height
+                    )
+                    // Translate to overlay window-local coordinates (origin = screen.frame.origin).
+                    let localRect = NSRect(
+                        x: quartzRect.origin.x - screen.frame.origin.x,
+                        y: quartzRect.origin.y - screen.frame.origin.y,
+                        width: quartzRect.size.width,
+                        height: quartzRect.size.height
+                    )
+                    let clipped = localRect.intersection(screenBounds)
+                    if !clipped.isNull { rects.append(clipped) }
+                }
+            } else {
+                // AX gave no windows (common for Chrome/Electron apps). Fall back to
+                // CGWindowList which works for all apps regardless of AX support.
+                // CGWindowBounds also uses top-left origin so the same y-flip applies.
+                let pid = app.processIdentifier
+                for info in cgWindowList {
+                    // kCGWindowOwnerPID bridges as Int (not Int32/pid_t) from CFNumber.
+                    // kCGWindowBounds bridges as NSDictionary — use CGRect(dictionaryRepresentation:).
+                    guard let ownerPID = info[kCGWindowOwnerPID as String] as? Int,
+                          pid_t(ownerPID) == pid,
+                          let boundsNS = info[kCGWindowBounds as String] as? NSDictionary,
+                          let cgBounds = CGRect(dictionaryRepresentation: boundsNS as CFDictionary),
+                          cgBounds.width > 0, cgBounds.height > 50 else { continue }
+
+                    // CGWindowBounds: top-left origin (same as AX) → flip to Quartz bottom-left.
+                    let quartzRect = NSRect(x: cgBounds.minX, y: mainH - cgBounds.minY - cgBounds.height,
+                                           width: cgBounds.width, height: cgBounds.height)
+                    let localRect = NSRect(
+                        x: quartzRect.origin.x - screen.frame.origin.x,
+                        y: quartzRect.origin.y - screen.frame.origin.y,
+                        width: quartzRect.size.width,
+                        height: quartzRect.size.height
+                    )
+                    let clipped = localRect.intersection(screenBounds)
+                    if !clipped.isNull { rects.append(clipped) }
+                }
             }
         }
         return rects

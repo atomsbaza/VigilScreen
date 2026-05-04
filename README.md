@@ -93,7 +93,7 @@ Native macOS 26 visual design when available.
 > xattr -cr /Applications/Vigil Screen.app
 > ```
 
-1. Download the latest release from [GitHub Releases](https://github.com/atomsbaza/DockLock/releases)
+1. Download the latest release from [GitHub Releases](https://github.com/atomsbaza/VigilScreen/releases)
 2. Open `Vigil Screen.dmg`
 3. Drag **Vigil Screen.app** to Applications
 4. Launch from Applications folder — right-click → Open on first launch
@@ -148,7 +148,7 @@ open VigilScreen.xcodeproj
 ## Architecture
 
 ```
-DockLock/
+VigilScreen/
 ├── App/
 │   ├── DockLockApp.swift          # @main entry point
 │   └── AppDelegate.swift          # NSApplicationDelegate + NSWindowDelegate
@@ -182,7 +182,7 @@ DockLock/
 │   └── SettingsView.swift         # Main settings window
 │
 └── Resources/
-    ├── DockLock.entitlements      # App entitlements
+    ├── VigilScreen.entitlements      # App entitlements
     └── PrivacyInfo.xcprivacy      # Apple privacy manifest (notarization)
 ```
 
@@ -339,8 +339,8 @@ MIT License — see [LICENSE](LICENSE).
 ## Support
 
 - 📖 [Documentation](CONTRIBUTING.md)
-- 🐛 [Report Bug](https://github.com/atomsbaza/DockLock/issues/new)
-- 💡 [Request Feature](https://github.com/atomsbaza/DockLock/issues/new?labels=enhancement)
+- 🐛 [Report Bug](https://github.com/atomsbaza/VigilScreen/issues/new)
+- 💡 [Request Feature](https://github.com/atomsbaza/VigilScreen/issues/new?labels=enhancement)
 - 🔒 [Security Issue](mailto:atomsbaza2@gmail.com)
 
 ---

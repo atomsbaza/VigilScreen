@@ -9,7 +9,7 @@ struct LockEngine {
         // Note: NSWorkspace.open is asynchronous — lock is best-effort with no completion callback.
         let screensaverURL = URL(fileURLWithPath: "/System/Library/CoreServices/ScreenSaverEngine.app")
         guard FileManager.default.fileExists(atPath: screensaverURL.path) else {
-            print("[DockLock] LockEngine: screensaver fallback unavailable — CGSession and ScreenSaverEngine both missing")
+            print("[VigilScreen] LockEngine: screensaver fallback unavailable — CGSession and ScreenSaverEngine both missing")
             return
         }
         NSWorkspace.shared.open(screensaverURL)

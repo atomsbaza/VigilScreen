@@ -47,7 +47,7 @@ class AppSafelist: ObservableObject {
     func exportToFile() {
         let panel = NSSavePanel()
         panel.title = "Export App Safelist"
-        panel.nameFieldStringValue = "DockLock-Safelist.json"
+        panel.nameFieldStringValue = "VigilScreen-Safelist.json"
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true
 
@@ -101,7 +101,7 @@ class AppSafelist: ObservableObject {
 private extension NSAlert {
     static func showError(_ message: String) {
         let alert = NSAlert()
-        alert.messageText = "DockLock"
+        alert.messageText = "Vigil Screen"
         alert.informativeText = message
         alert.alertStyle = .warning
         alert.runModal()

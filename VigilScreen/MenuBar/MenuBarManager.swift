@@ -16,7 +16,7 @@ class MenuBarManager {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem?.button {
-            let image = NSImage(systemSymbolName: "lock.shield", accessibilityDescription: "DockLock")
+            let image = NSImage(systemSymbolName: "lock.shield", accessibilityDescription: "Vigil Screen")
             image?.isTemplate = true
             button.image = image
             button.action = #selector(togglePopover)
@@ -116,7 +116,7 @@ class MenuBarManager {
 
     private func updateIcon(panicActive: Bool) {
         let symbolName = panicActive ? "lock.shield.fill" : "lock.shield"
-        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "DockLock")
+        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Vigil Screen")
         // Must be template so it renders correctly in both light and dark menu bars
         image?.isTemplate = true
         statusItem?.button?.image = image

@@ -207,7 +207,7 @@ enum KeychainHelper {
         SecItemDelete(query as CFDictionary)
         let status = SecItemAdd(query as CFDictionary, nil)
         if status != errSecSuccess {
-            print("[DockLock] Keychain save failed for key '\(key)': OSStatus \(status)")
+            print("[VigilScreen] Keychain save failed for key '\(key)': OSStatus \(status)")
         }
     }
 
@@ -231,7 +231,7 @@ enum KeychainHelper {
         ]
         let status = SecItemDelete(query as CFDictionary)
         if status != errSecSuccess && status != errSecItemNotFound {
-            print("[DockLock] Keychain delete failed for key '\(key)': OSStatus \(status)")
+            print("[VigilScreen] Keychain delete failed for key '\(key)': OSStatus \(status)")
         }
     }
 }

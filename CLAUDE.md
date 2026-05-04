@@ -18,13 +18,13 @@ Vigil Screen is a macOS menu bar app (Swift 6, SwiftUI, AppKit) that provides pr
 open VigilScreen.xcodeproj
 
 # Build from CLI
-xcodebuild -scheme DockLock -configuration Debug build
+xcodebuild -scheme VigilScreen -configuration Debug build
 
 # Run all tests
-xcodebuild -scheme DockLockTests -destination 'platform=macOS' test
+xcodebuild -scheme VigilScreenTests -destination 'platform=macOS' test
 
 # Run a single test class
-xcodebuild -scheme DockLockTests -destination 'platform=macOS' test -only-testing:DockLockTests/AppBlocklistTests
+xcodebuild -scheme VigilScreenTests -destination 'platform=macOS' test -only-testing:VigilScreenTests/AppBlocklistTests
 ```
 
 ## Architecture
@@ -74,7 +74,7 @@ The project enforces strict Swift 6 concurrency. Key patterns in use:
 
 ## Test Coverage
 
-39 tests in `DockLockTests/` — all passing:
+39 tests in `VigilScreenTests/` — all passing:
 - `AppBlocklistTests` — safelist CRUD and persistence
 - `SettingsStoreTests` — defaults, clamping, round-trip
 - `DiscoveredDeviceTests` — RSSI thresholds

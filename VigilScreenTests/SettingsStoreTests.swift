@@ -1,5 +1,5 @@
 import XCTest
-@testable import DockLock
+@testable import VigilScreen
 
 /// Tests for SettingsStore default values and UserDefaults persistence.
 final class SettingsStoreTests: XCTestCase {

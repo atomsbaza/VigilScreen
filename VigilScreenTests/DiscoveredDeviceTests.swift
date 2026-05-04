@@ -1,5 +1,5 @@
 import XCTest
-@testable import DockLock
+@testable import VigilScreen
 
 final class DiscoveredDeviceTests: XCTestCase {
 

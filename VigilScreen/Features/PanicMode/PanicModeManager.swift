@@ -39,10 +39,10 @@ class PanicModeManager: ObservableObject {
     // we can cancel it if another activation comes in first.
     private var pendingActivationWork: DispatchWorkItem?
 
-    // DockLock's own windows (settings, popover) are raised above the overlay during panic
+    // Vigil Screen's own windows (settings, popover) are raised above the overlay during panic
     // so the user can still interact with them.
     private let panicVigilLevel = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
-    // During auth the overlay drops to level 1; DockLock windows go to level 2 so they
+    // During auth the overlay drops to level 1; Vigil Screen windows go to level 2 so they
     // remain visible but don't obstruct the system auth dialog (modal panel, level 8).
     private let authVigilLevel  = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue + 2)
 
@@ -341,10 +341,11 @@ class PanicModeManager: ObservableObject {
         guard !isActive else { return }
         LockHistoryStore.shared.record(.panic)
         closeNotificationCenter()
+        hideStageManager()
 
         isActive = true
 
-        // Raise DockLock's own windows above the overlay so the user can still
+        // Raise Vigil Screen's own windows above the overlay so the user can still
         // access settings and the menu bar popover during panic.
         raiseVigilWindows(to: panicVigilLevel)
 
@@ -372,7 +373,7 @@ class PanicModeManager: ObservableObject {
         }
     }
 
-    // MARK: - Notification Center
+    // MARK: - Notification Center & Stage Manager
 
     private func closeNotificationCenter() {
         NSRunningApplication
@@ -382,6 +383,20 @@ class PanicModeManager: ObservableObject {
         guard let src = CGEventSource(stateID: .hidSystemState) else { return }
         CGEvent(keyboardEventSource: src, virtualKey: 0x35, keyDown: true)?.post(tap: .cgSessionEventTap)
         CGEvent(keyboardEventSource: src, virtualKey: 0x35, keyDown: false)?.post(tap: .cgSessionEventTap)
+    }
+
+    private func hideStageManager() {
+        // Stage Manager stages render above .screenSaver level via WindowManager.
+        // Hiding the process removes the stage thumbnails for the duration of panic.
+        NSRunningApplication
+            .runningApplications(withBundleIdentifier: "com.apple.WindowManager")
+            .forEach { $0.hide() }
+    }
+
+    private func unhideStageManager() {
+        NSRunningApplication
+            .runningApplications(withBundleIdentifier: "com.apple.WindowManager")
+            .forEach { $0.unhide() }
     }
 
     // MARK: - Space Switch Monitoring
@@ -506,7 +521,7 @@ class PanicModeManager: ObservableObject {
             isAuthenticating = true
             // Lower overlay to level 1 — above normal app windows (0) but below the
             // system auth dialog (modal panel, level 8) so it remains visible.
-            // Lower DockLock windows to level 2: visible but below the auth dialog.
+            // Lower Vigil Screen windows to level 2: visible but below the auth dialog.
             setOverlayLevel(NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue + 1))
             raiseVigilWindows(to: authVigilLevel)
             overlayWindows.values.forEach { $0.orderFrontRegardless() }
@@ -545,6 +560,7 @@ class PanicModeManager: ObservableObject {
         panicCancellables.removeAll()
         restoreVigilWindows()
         dismissAllOverlays()
+        unhideStageManager()
         isActive = false
     }
 

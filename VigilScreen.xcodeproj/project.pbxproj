@@ -12,13 +12,13 @@
 			containerPortal = 3D1314F12F821B5A00A5229D /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3D1314F82F821B5A00A5229D;
-			remoteInfo = DockLock;
+			remoteInfo = VigilScreen;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		3D1314F92F821B5A00A5229D /* Vigil Screen.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Vigil Screen.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		AB00010000000000000001AB /* VigilScreenTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = VigilScreenTests.xctest; path = DockLockTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB00010000000000000001AB /* VigilScreenTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = VigilScreenTests.xctest; path = VigilScreenTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -73,9 +73,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3D1314F82F821B5A00A5229D /* DockLock */ = {
+		3D1314F82F821B5A00A5229D /* VigilScreen */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3D1315042F821B5D00A5229D /* Build configuration list for PBXNativeTarget "DockLock" */;
+			buildConfigurationList = 3D1315042F821B5D00A5229D /* Build configuration list for PBXNativeTarget "VigilScreen" */;
 			buildPhases = (
 				3D1314F52F821B5A00A5229D /* Sources */,
 				3D1314F62F821B5A00A5229D /* Frameworks */,
@@ -88,16 +88,16 @@
 			fileSystemSynchronizedGroups = (
 				3D1314FB2F821B5A00A5229D /* VigilScreen */,
 			);
-			name = DockLock;
+			name = VigilScreen;
 			packageProductDependencies = (
 			);
-			productName = DockLock;
+			productName = VigilScreen;
 			productReference = 3D1314F92F821B5A00A5229D /* Vigil Screen.app */;
 			productType = "com.apple.product-type.application";
 		};
-		AB00030000000000000003AB /* DockLockTests */ = {
+		AB00030000000000000003AB /* VigilScreenTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AB000A000000000000000AAB /* Build configuration list for PBXNativeTarget "DockLockTests" */;
+			buildConfigurationList = AB000A000000000000000AAB /* Build configuration list for PBXNativeTarget "VigilScreenTests" */;
 			buildPhases = (
 				AB00040000000000000004AB /* Sources */,
 				AB00050000000000000005AB /* Frameworks */,
@@ -110,8 +110,8 @@
 			fileSystemSynchronizedGroups = (
 				AB00020000000000000002AB /* VigilScreenTests */,
 			);
-			name = DockLockTests;
-			productName = DockLockTests;
+			name = VigilScreenTests;
+			productName = VigilScreenTests;
 			productReference = AB00010000000000000001AB /* VigilScreenTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
@@ -148,8 +148,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				3D1314F82F821B5A00A5229D /* DockLock */,
-				AB00030000000000000003AB /* DockLockTests */,
+				3D1314F82F821B5A00A5229D /* VigilScreen */,
+				AB00030000000000000003AB /* VigilScreenTests */,
 			);
 		};
 /* End PBXProject section */
@@ -184,7 +184,7 @@
 /* Begin PBXTargetDependency section */
 		AB00070000000000000007AB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 3D1314F82F821B5A00A5229D /* DockLock */;
+			target = 3D1314F82F821B5A00A5229D /* VigilScreen */;
 			targetProxy = AB00060000000000000006AB /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -326,6 +326,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Vigil Screen uses Bluetooth to detect when you leave your Mac and lock the screen automatically.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Vigil Screen uses the camera to photograph anyone who fails to unlock Panic Mode, so you can identify unauthorised access attempts.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Pisit Koolplukpol";
@@ -334,7 +335,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.3.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.pisit.koolplukpol.DockLock;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pisit.koolplukpol.VigilScreen;
+				SWIFT_MODULE_NAME = VigilScreen;
 				PRODUCT_NAME = "Vigil Screen";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -363,6 +365,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Vigil Screen uses Bluetooth to detect when you leave your Mac and lock the screen automatically.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Vigil Screen uses the camera to photograph anyone who fails to unlock Panic Mode, so you can identify unauthorised access attempts.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Pisit Koolplukpol";
@@ -371,7 +374,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.3.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.pisit.koolplukpol.DockLock;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pisit.koolplukpol.VigilScreen;
+				SWIFT_MODULE_NAME = VigilScreen;
 				PRODUCT_NAME = "Vigil Screen";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -448,7 +452,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3D1315042F821B5D00A5229D /* Build configuration list for PBXNativeTarget "DockLock" */ = {
+		3D1315042F821B5D00A5229D /* Build configuration list for PBXNativeTarget "VigilScreen" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3D1315052F821B5D00A5229D /* Debug */,
@@ -457,7 +461,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AB000A000000000000000AAB /* Build configuration list for PBXNativeTarget "DockLockTests" */ = {
+		AB000A000000000000000AAB /* Build configuration list for PBXNativeTarget "VigilScreenTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AB00080000000000000008AB /* Debug */,

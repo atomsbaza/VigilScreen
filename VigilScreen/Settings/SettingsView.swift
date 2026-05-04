@@ -23,7 +23,7 @@ struct SettingsView: View {
                     Label("History", systemImage: "clock")
                 }
             }
-            .navigationTitle("DockLock")
+            .navigationTitle("Vigil Screen")
             .listStyle(.sidebar)
         } detail: {
             GeneralSettingsView()

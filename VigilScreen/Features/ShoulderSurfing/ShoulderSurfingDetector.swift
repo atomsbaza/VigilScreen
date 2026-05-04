@@ -16,7 +16,7 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
 
     private var session: AVCaptureSession?
     private var videoOutput: AVCaptureVideoDataOutput?
-    private let visionQueue = DispatchQueue(label: "com.docklock.shouldersurfing", qos: .userInitiated)
+    private let visionQueue = DispatchQueue(label: "com.vigilscreen.shouldersurfing", qos: .userInitiated)
     private var consecutiveMultiFaceFrames = 0
     private var cancellables = Set<AnyCancellable>()
     // Accessed only from visionQueue — nonisolated(unsafe) is correct here.

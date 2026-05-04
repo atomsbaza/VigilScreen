@@ -1,5 +1,5 @@
 import XCTest
-@testable import DockLock
+@testable import VigilScreen
 
 /// Tests for LockTrigger — countdown logic without requiring BT hardware.
 final class LockTriggerTests: XCTestCase {

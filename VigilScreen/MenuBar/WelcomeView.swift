@@ -24,7 +24,7 @@ struct WelcomeView: View {
             Image(systemName: "lock.shield.fill")
                 .foregroundColor(.accentColor)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Welcome to DockLock")
+                Text("Welcome to Vigil Screen")
                     .font(.headline)
                 Text("Complete setup to get protected.")
                     .font(.caption)

@@ -1,5 +1,5 @@
 import XCTest
-@testable import DockLock
+@testable import VigilScreen
 
 /// Tests for BluetoothMonitor — pure logic that does not require hardware.
 final class BluetoothMonitorTests: XCTestCase {

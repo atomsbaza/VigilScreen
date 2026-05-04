@@ -1,5 +1,5 @@
 import XCTest
-@testable import DockLock
+@testable import VigilScreen
 
 /// Tests for AppSafelist. Uses the shared singleton; cleans up UserDefaults before each test.
 final class AppBlocklistTests: XCTestCase {

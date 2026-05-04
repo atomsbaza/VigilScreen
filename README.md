@@ -110,7 +110,7 @@ brew install --cask docklock
 ```bash
 git clone https://github.com/atomsbaza/DockLock.git
 cd DockLock
-open DockLock.xcodeproj
+open VigilScreen.xcodeproj
 ```
 
 **Requirements:**

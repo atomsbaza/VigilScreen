@@ -15,7 +15,7 @@ Vigil Screen is a macOS menu bar app (Swift 6, SwiftUI, AppKit) that provides pr
 
 ```bash
 # Open in Xcode
-open DockLock.xcodeproj
+open VigilScreen.xcodeproj
 
 # Build from CLI
 xcodebuild -scheme DockLock -configuration Debug build

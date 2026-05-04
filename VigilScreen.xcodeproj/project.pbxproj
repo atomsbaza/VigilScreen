@@ -18,18 +18,18 @@
 
 /* Begin PBXFileReference section */
 		3D1314F92F821B5A00A5229D /* Vigil Screen.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Vigil Screen.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		AB00010000000000000001AB /* DockLockTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DockLockTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB00010000000000000001AB /* VigilScreenTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = VigilScreenTests.xctest; path = DockLockTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		3D1314FB2F821B5A00A5229D /* DockLock */ = {
+		3D1314FB2F821B5A00A5229D /* VigilScreen */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = DockLock;
+			path = VigilScreen;
 			sourceTree = "<group>";
 		};
-		AB00020000000000000002AB /* DockLockTests */ = {
+		AB00020000000000000002AB /* VigilScreenTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = DockLockTests;
+			path = VigilScreenTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -55,8 +55,8 @@
 		3D1314F02F821B5A00A5229D = {
 			isa = PBXGroup;
 			children = (
-				3D1314FB2F821B5A00A5229D /* DockLock */,
-				AB00020000000000000002AB /* DockLockTests */,
+				3D1314FB2F821B5A00A5229D /* VigilScreen */,
+				AB00020000000000000002AB /* VigilScreenTests */,
 				3D1314FA2F821B5A00A5229D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -65,7 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				3D1314F92F821B5A00A5229D /* Vigil Screen.app */,
-				AB00010000000000000001AB /* DockLockTests.xctest */,
+				AB00010000000000000001AB /* VigilScreenTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -86,7 +86,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				3D1314FB2F821B5A00A5229D /* DockLock */,
+				3D1314FB2F821B5A00A5229D /* VigilScreen */,
 			);
 			name = DockLock;
 			packageProductDependencies = (
@@ -108,11 +108,11 @@
 				AB00070000000000000007AB /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				AB00020000000000000002AB /* DockLockTests */,
+				AB00020000000000000002AB /* VigilScreenTests */,
 			);
 			name = DockLockTests;
 			productName = DockLockTests;
-			productReference = AB00010000000000000001AB /* DockLockTests.xctest */;
+			productReference = AB00010000000000000001AB /* VigilScreenTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -134,7 +134,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 3D1314F42F821B5A00A5229D /* Build configuration list for PBXProject "DockLock" */;
+			buildConfigurationList = 3D1314F42F821B5A00A5229D /* Build configuration list for PBXProject "VigilScreen" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -315,7 +315,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = DockLock/Resources/DockLock.entitlements;
+				CODE_SIGN_ENTITLEMENTS = VigilScreen/Resources/DockLock.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -352,7 +352,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = DockLock/Resources/DockLock.entitlements;
+				CODE_SIGN_ENTITLEMENTS = VigilScreen/Resources/DockLock.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -439,7 +439,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3D1314F42F821B5A00A5229D /* Build configuration list for PBXProject "DockLock" */ = {
+		3D1314F42F821B5A00A5229D /* Build configuration list for PBXProject "VigilScreen" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3D1315022F821B5D00A5229D /* Debug */,

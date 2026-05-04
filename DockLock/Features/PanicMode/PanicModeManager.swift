@@ -41,10 +41,10 @@ class PanicModeManager: ObservableObject {
 
     // DockLock's own windows (settings, popover) are raised above the overlay during panic
     // so the user can still interact with them.
-    private let panicDockLockLevel = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
+    private let panicVigilLevel = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
     // During auth the overlay drops to level 1; DockLock windows go to level 2 so they
     // remain visible but don't obstruct the system auth dialog (modal panel, level 8).
-    private let authDockLockLevel  = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue + 2)
+    private let authVigilLevel  = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue + 2)
 
     // MARK: - Overlay Window Management
 
@@ -110,16 +110,16 @@ class PanicModeManager: ObservableObject {
         cachedSafelistMasks.removeAll()
     }
 
-    // MARK: - DockLock Window Level Management
+    // MARK: - Vigil Screen Window Level Management
 
-    private func raiseDockLockWindows(to level: NSWindow.Level) {
+    private func raiseVigilWindows(to level: NSWindow.Level) {
         for window in NSApplication.shared.windows {
             guard !overlayWindows.values.contains(window) else { continue }
             window.level = level
         }
     }
 
-    private func restoreDockLockWindows() {
+    private func restoreVigilWindows() {
         for window in NSApplication.shared.windows {
             guard !overlayWindows.values.contains(window) else { continue }
             window.level = .normal
@@ -346,7 +346,7 @@ class PanicModeManager: ObservableObject {
 
         // Raise DockLock's own windows above the overlay so the user can still
         // access settings and the menu bar popover during panic.
-        raiseDockLockWindows(to: panicDockLockLevel)
+        raiseVigilWindows(to: panicVigilLevel)
 
         prewarmOverlays()
         setOverlayLevel(.screenSaver)
@@ -508,7 +508,7 @@ class PanicModeManager: ObservableObject {
             // system auth dialog (modal panel, level 8) so it remains visible.
             // Lower DockLock windows to level 2: visible but below the auth dialog.
             setOverlayLevel(NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue + 1))
-            raiseDockLockWindows(to: authDockLockLevel)
+            raiseVigilWindows(to: authVigilLevel)
             overlayWindows.values.forEach { $0.orderFrontRegardless() }
 
             authenticateWithBiometrics { [weak self] success in
@@ -519,7 +519,7 @@ class PanicModeManager: ObservableObject {
                 } else {
                     // Restore full overlay protection after failed auth.
                     self.setOverlayLevel(.screenSaver)
-                    self.raiseDockLockWindows(to: self.panicDockLockLevel)
+                    self.raiseVigilWindows(to: self.panicVigilLevel)
                     self.showOverlaysOnAllScreens()
                     self.updateOverlayMasks()
                 }
@@ -543,7 +543,7 @@ class PanicModeManager: ObservableObject {
         pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
-        restoreDockLockWindows()
+        restoreVigilWindows()
         dismissAllOverlays()
         isActive = false
     }
@@ -555,7 +555,7 @@ class PanicModeManager: ObservableObject {
         pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
-        restoreDockLockWindows()
+        restoreVigilWindows()
         dismissAllOverlays()
         isActive = false
     }
@@ -565,7 +565,7 @@ class PanicModeManager: ObservableObject {
     private func authenticateWithBiometrics(completion: @MainActor @escaping (Bool) -> Void) {
         let context = LAContext()
         context.evaluatePolicy(.deviceOwnerAuthentication,
-                                localizedReason: "Unlock DockLock Panic Mode") { success, authError in
+                                localizedReason: "Unlock Vigil Screen Panic Mode") { success, authError in
             Task { @MainActor in
                 if !success, SettingsStore.shared.intruderCaptureEnabled {
                     let isSystemCancel = (authError as? LAError)?.code == .systemCancel

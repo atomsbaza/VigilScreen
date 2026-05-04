@@ -36,7 +36,7 @@ struct MenuBarView: View {
         HStack(spacing: 7) {
             Image(systemName: "lock.shield.fill")
                 .foregroundColor(panicManager.isActive ? .red : .accentColor)
-            Text("DockLock")
+            Text("Vigil Screen")
                 .font(.headline)
             Spacer()
         }

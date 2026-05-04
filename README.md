@@ -1,4 +1,4 @@
-# DockLock
+# Vigil Screen
 
 🛡️ **Auto-lock your Mac on proximity + panic-hide sensitive apps with one hotkey**
 
@@ -31,7 +31,7 @@ Blur everything instantly with one keystroke — only your trusted apps stay vis
 ### 📸 **Intruder Capture**
 Automatically photographs anyone who fails a panic-release attempt.
 - Captures a photo from the front camera on wrong Touch ID or password attempt
-- Saved locally to `~/Pictures/DockLock Captures/` — never uploaded
+- Saved locally to `~/Pictures/Vigil Screen Captures/` — never uploaded
 - Sends a macOS notification so you know even when you're away from the History tab
 - Visible in the History log with thumbnail — tap to enlarge
 - Toggle on/off in Settings → Panic Mode
@@ -87,15 +87,15 @@ Native macOS 26 visual design when available.
 
 ### Option 1: Download .dmg (Recommended)
 
-> **Note:** DockLock is not notarized yet. macOS will show a security warning on first launch.
+> **Note:** Vigil Screen is not notarized yet. macOS will show a security warning on first launch.
 > To open it, **right-click → Open → Open anyway**, or run in Terminal:
 > ```bash
-> xattr -cr /Applications/DockLock.app
+> xattr -cr /Applications/Vigil Screen.app
 > ```
 
 1. Download the latest release from [GitHub Releases](https://github.com/atomsbaza/DockLock/releases)
-2. Open `DockLock.dmg`
-3. Drag **DockLock.app** to Applications
+2. Open `Vigil Screen.dmg`
+3. Drag **Vigil Screen.app** to Applications
 4. Launch from Applications folder — right-click → Open on first launch
 5. Grant permissions (Bluetooth, Accessibility) when prompted
 
@@ -124,7 +124,7 @@ open DockLock.xcodeproj
 
 ### 1. **Enable Proximity Lock**
 
-1. Open DockLock → Settings
+1. Open Vigil Screen → Settings
 2. Go to **Proximity Lock** tab
 3. Toggle **Enable**
 4. Click **Scan for Devices** and select your iPhone or Apple Watch
@@ -190,7 +190,7 @@ DockLock/
 
 ## Liquid Glass
 
-DockLock uses the macOS 26 Liquid Glass design language when available, with a clean fallback for macOS 15–25:
+Vigil Screen uses the macOS 26 Liquid Glass design language when available, with a clean fallback for macOS 15–25:
 
 | Element | macOS 26 | macOS 15–25 |
 |---|---|---|
@@ -216,7 +216,7 @@ All glass effects are gated with `#available(macOS 26, *)` — the app compiles 
 
 ## Permissions
 
-DockLock requests only the permissions it needs:
+Vigil Screen requests only the permissions it needs:
 
 | Permission | Why | Prompt |
 |---|---|---|
@@ -231,7 +231,7 @@ DockLock requests only the permissions it needs:
 
 ## FAQ
 
-**Q: Does DockLock work with multiple Macs?**
+**Q: Does Vigil Screen work with multiple Macs?**
 A: Yes — iCloud Sync (added in v0.2.0) automatically syncs Settings, App Safelist, and Lock History across all your Macs.
 
 **Q: What if my iPhone is out of battery?**
@@ -262,7 +262,7 @@ A: Yes. Optimized for M1/M2/M3/M4 Macs.
 - Settings, Safelist, and History sync via iCloud KV store (v0.2.0) — no third-party servers
 - No accounts, no logins
 - Bluetooth pairing info in system Keychain (encrypted)
-- Intruder photos stored locally only (`~/Pictures/DockLock Captures/`) — never synced
+- Intruder photos stored locally only (`~/Pictures/Vigil Screen Captures/`) — never synced
 
 ### No Telemetry
 - No usage tracking, crash reporting, or analytics
@@ -299,7 +299,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 ### ✅ v0.1.0
 - Panic Mode — instant full-screen blur on all screens, safelist keeps trusted apps visible
 - Proximity Lock (Bluetooth) — auto-triggers Panic Mode before locking
-- Intruder Capture — front-camera photo on failed unlock, saved to `~/Pictures/DockLock Captures/`
+- Intruder Capture — front-camera photo on failed unlock, saved to `~/Pictures/Vigil Screen Captures/`
 - Lock History — full audit log of lock events
 - Menubar Live Stats — live RSSI + countdown in menu bar
 - Local settings, first-run onboarding

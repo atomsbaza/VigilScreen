@@ -63,10 +63,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "DockLock Settings"
+        window.title = "Vigil Screen Settings"
         window.contentViewController = NSHostingController(rootView: SettingsView())
         window.center()
-        window.setFrameAutosaveName("DockLockSettings")
+        window.setFrameAutosaveName("VigilScreenSettings")
         window.isReleasedWhenClosed = false
         window.delegate = self
         settingsWindow = window

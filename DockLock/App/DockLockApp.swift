@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct DockLockApp: App {
+struct VigilScreenApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {

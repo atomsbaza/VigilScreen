@@ -14,12 +14,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menuBarManager = MenuBarManager()
         menuBarManager?.setup()
 
-        // Only prompt for accessibility permission on the very first launch.
-        // Subsequent launches show a status badge in Settings instead.
-        let hasPromptedBefore = UserDefaults.standard.bool(forKey: "hasPromptedAccessibility")
-        if !PermissionManager.shared.hasAccessibilityPermission && !hasPromptedBefore {
-            UserDefaults.standard.set(true, forKey: "hasPromptedAccessibility")
-            PermissionManager.shared.requestAccessibilityIfNeeded()
+        if !PermissionManager.shared.hasAccessibilityPermission {
+            showAccessibilityAlert()
         }
 
         _ = PanicModeManager.shared
@@ -31,6 +27,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    // MARK: - Accessibility permission
+
+    private func showAccessibilityAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Accessibility Permission Required"
+        alert.informativeText = "Vigil Screen needs Accessibility access to register the ⌘⇧L global shortcut.\n\nClick \"Open Settings\", find Vigil Screen in the list, and turn it on."
+        alert.addButton(withTitle: "Open Settings")
+        alert.addButton(withTitle: "Later")
+        alert.alertStyle = .warning
+        if alert.runModal() == .alertFirstButtonReturn {
+            PermissionManager.shared.requestAccessibilityIfNeeded()
+        }
     }
 
     // MARK: - Settings window

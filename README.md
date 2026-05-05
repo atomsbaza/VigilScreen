@@ -138,7 +138,17 @@ open VigilScreen.xcodeproj
 4. Customize keyboard shortcut (default: `⌘+Shift+L`)
 5. Toggle **Require Touch ID to release** for extra security
 
-### 3. **Test It Out**
+### 3. **Grant Accessibility Permission**
+
+On first launch, Vigil Screen will prompt you to grant Accessibility access — this is required for the global `⌘+Shift+L` shortcut to work.
+
+1. Click **Open Settings** in the prompt
+2. Find **Vigil Screen** in the Accessibility list and turn it **on**
+3. **Quit and reopen Vigil Screen** — the shortcut will not work until you restart the app after granting permission
+
+> **Note:** macOS requires a restart of the app any time Accessibility permission is newly granted or toggled.
+
+### 4. **Test It Out**
 
 - **Proximity Lock**: Walk away from your desk with Bluetooth enabled → Mac locks
 - **Panic Mode**: Press `⌘+Shift+L` → selected apps disappear instantly

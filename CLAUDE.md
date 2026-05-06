@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DockLock is a macOS menu bar app (Swift 6, SwiftUI, AppKit) that provides privacy protection via:
+Vigil Screen is a macOS menu bar app (Swift 6, SwiftUI, AppKit) that provides privacy protection via:
 - **Panic Mode**: Instantly blur all screens and hide non-safelisted apps (⌘⇧L), released by Touch ID
 - **Proximity Lock**: Auto-locks when a paired Bluetooth device (iPhone/Watch) moves out of range
 
@@ -15,22 +15,22 @@ DockLock is a macOS menu bar app (Swift 6, SwiftUI, AppKit) that provides privac
 
 ```bash
 # Open in Xcode
-open DockLock.xcodeproj
+open VigilScreen.xcodeproj
 
 # Build from CLI
-xcodebuild -scheme DockLock -configuration Debug build
+xcodebuild -scheme VigilScreen -configuration Debug build
 
 # Run all tests
-xcodebuild -scheme DockLockTests -destination 'platform=macOS' test
+xcodebuild -scheme VigilScreenTests -destination 'platform=macOS' test
 
 # Run a single test class
-xcodebuild -scheme DockLockTests -destination 'platform=macOS' test -only-testing:DockLockTests/AppBlocklistTests
+xcodebuild -scheme VigilScreenTests -destination 'platform=macOS' test -only-testing:VigilScreenTests/AppBlocklistTests
 ```
 
 ## Architecture
 
 ### App Entry & Menu Bar
-- `DockLockApp.swift` — `@main`, uses `.accessory` activation policy (no Dock icon), no SwiftUI window scenes
+- `DockLockApp.swift` (`VigilScreenApp`) — `@main`, uses `.accessory` activation policy (no Dock icon), no SwiftUI window scenes
 - `AppDelegate.swift` — `NSApplicationDelegate`, boots menu bar, registers global hotkey (⌘⇧L via `NSEvent.addGlobalMonitorForEvents`)
 - `MenuBarManager.swift` — `NSStatusItem` + `NSPopover` with dynamic height resizing
 - Settings window is a manually-created `NSWindow` (SwiftUI `.Settings` scene incompatible with `.accessory` policy)
@@ -54,7 +54,7 @@ xcodebuild -scheme DockLockTests -destination 'platform=macOS' test -only-testin
 - `LockEngine.swift` — `CGSession` lock + screensaver fallback
 - `SettingsStore.swift` — `UserDefaults` wrapper; all `@Published` properties auto-persist via Combine `.sink`
 - `PermissionManager.swift` — polls Accessibility permission every 1s, max 60 attempts
-- `LockHistoryStore.swift` — JSON-encoded lock event log; photos at `~/Pictures/DockLock Captures/`
+- `LockHistoryStore.swift` — JSON-encoded lock event log; photos at `~/Pictures/Vigil Screen Captures/`
 - `IntruderCaptureManager.swift` — `AVCaptureSession` photo capture on failed auth
 
 ### State Persistence
@@ -62,7 +62,7 @@ xcodebuild -scheme DockLockTests -destination 'platform=macOS' test -only-testin
 - `AppSafelist` → `UserDefaults` (JSON array of bundle IDs)
 - `LockHistoryStore` → `UserDefaults` (JSON-encoded `[LockEvent]`)
 - Paired BT device UUID → Keychain
-- Intruder photos → `~/Pictures/DockLock Captures/<uuid>.jpg`
+- Intruder photos → `~/Pictures/Vigil Screen Captures/<uuid>.jpg`
 
 ## Swift 6 Concurrency Rules
 
@@ -74,7 +74,7 @@ The project enforces strict Swift 6 concurrency. Key patterns in use:
 
 ## Test Coverage
 
-39 tests in `DockLockTests/` — all passing:
+39 tests in `VigilScreenTests/` — all passing:
 - `AppBlocklistTests` — safelist CRUD and persistence
 - `SettingsStoreTests` — defaults, clamping, round-trip
 - `DiscoveredDeviceTests` — RSSI thresholds

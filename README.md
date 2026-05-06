@@ -1,4 +1,4 @@
-# DockLock
+# Vigil Screen
 
 🛡️ **Auto-lock your Mac on proximity + panic-hide sensitive apps with one hotkey**
 
@@ -25,13 +25,13 @@ Auto-lock your Mac when you step away from your desk.
 Blur everything instantly with one keystroke — only your trusted apps stay visible.
 - Single hotkey (default: `⌘+Shift+L`) blurs all screens immediately and hides non-safelisted apps
 - **Safelist model**: apps you trust (Terminal, IDE, browsers, etc.) remain visible and interactive above the blur; everything else vanishes
-- No flash, no polling — blur appears on all screens in a single frame; overlay resets instantly on safelisted app switch and fades back in after a short settling window
+- **Fullscreen & Chromium support**: safelisted apps remain visible whether they are in a normal window, fullscreen Space, or are Chromium-based (Chrome, Edge, Brave, Arc)
 - Release with Touch ID for added security
 
 ### 📸 **Intruder Capture**
 Automatically photographs anyone who fails a panic-release attempt.
 - Captures a photo from the front camera on wrong Touch ID or password attempt
-- Saved locally to `~/Pictures/DockLock Captures/` — never uploaded
+- Saved locally to `~/Pictures/Vigil Screen Captures/` — never uploaded
 - Sends a macOS notification so you know even when you're away from the History tab
 - Visible in the History log with thumbnail — tap to enlarge
 - Toggle on/off in Settings → Panic Mode
@@ -87,15 +87,15 @@ Native macOS 26 visual design when available.
 
 ### Option 1: Download .dmg (Recommended)
 
-> **Note:** DockLock is not notarized yet. macOS will show a security warning on first launch.
+> **Note:** Vigil Screen is not notarized yet. macOS will show a security warning on first launch.
 > To open it, **right-click → Open → Open anyway**, or run in Terminal:
 > ```bash
-> xattr -cr /Applications/DockLock.app
+> xattr -cr /Applications/Vigil Screen.app
 > ```
 
-1. Download the latest release from [GitHub Releases](https://github.com/atomsbaza/DockLock/releases)
-2. Open `DockLock.dmg`
-3. Drag **DockLock.app** to Applications
+1. Download the latest release from [GitHub Releases](https://github.com/atomsbaza/VigilScreen/releases)
+2. Open `Vigil Screen.dmg`
+3. Drag **Vigil Screen.app** to Applications
 4. Launch from Applications folder — right-click → Open on first launch
 5. Grant permissions (Bluetooth, Accessibility) when prompted
 
@@ -110,7 +110,7 @@ brew install --cask docklock
 ```bash
 git clone https://github.com/atomsbaza/DockLock.git
 cd DockLock
-open DockLock.xcodeproj
+open VigilScreen.xcodeproj
 ```
 
 **Requirements:**
@@ -124,7 +124,7 @@ open DockLock.xcodeproj
 
 ### 1. **Enable Proximity Lock**
 
-1. Open DockLock → Settings
+1. Open Vigil Screen → Settings
 2. Go to **Proximity Lock** tab
 3. Toggle **Enable**
 4. Click **Scan for Devices** and select your iPhone or Apple Watch
@@ -138,7 +138,17 @@ open DockLock.xcodeproj
 4. Customize keyboard shortcut (default: `⌘+Shift+L`)
 5. Toggle **Require Touch ID to release** for extra security
 
-### 3. **Test It Out**
+### 3. **Grant Accessibility Permission**
+
+On first launch, Vigil Screen will prompt you to grant Accessibility access — this is required for the global `⌘+Shift+L` shortcut to work.
+
+1. Click **Open Settings** in the prompt
+2. Find **Vigil Screen** in the Accessibility list and turn it **on**
+3. **Quit and reopen Vigil Screen** — the shortcut will not work until you restart the app after granting permission
+
+> **Note:** macOS requires a restart of the app any time Accessibility permission is newly granted or toggled.
+
+### 4. **Test It Out**
 
 - **Proximity Lock**: Walk away from your desk with Bluetooth enabled → Mac locks
 - **Panic Mode**: Press `⌘+Shift+L` → selected apps disappear instantly
@@ -148,7 +158,7 @@ open DockLock.xcodeproj
 ## Architecture
 
 ```
-DockLock/
+VigilScreen/
 ├── App/
 │   ├── DockLockApp.swift          # @main entry point
 │   └── AppDelegate.swift          # NSApplicationDelegate + NSWindowDelegate
@@ -182,7 +192,7 @@ DockLock/
 │   └── SettingsView.swift         # Main settings window
 │
 └── Resources/
-    ├── DockLock.entitlements      # App entitlements
+    ├── VigilScreen.entitlements      # App entitlements
     └── PrivacyInfo.xcprivacy      # Apple privacy manifest (notarization)
 ```
 
@@ -190,11 +200,11 @@ DockLock/
 
 ## Liquid Glass
 
-DockLock uses the macOS 26 Liquid Glass design language when available, with a clean fallback for macOS 15–25:
+Vigil Screen uses the macOS 26 Liquid Glass design language when available, with a clean fallback for macOS 15–25:
 
 | Element | macOS 26 | macOS 15–25 |
 |---|---|---|
-| Panic button | `.glassEffect(.regular.tint(...).interactive())` | Colored `.background` + rounded clip |
+| Panic button | `.glassEffect(.regular.tint(...).interactive())` with `exclamationmark.shield.fill` icon + `⌘⇧L` shortcut hint | Filled `.background` (red/green) + rounded clip + `⌘⇧L` hint |
 | Onboarding CTA | `.buttonStyle(.glassProminent)` | `.buttonStyle(.borderedProminent)` |
 
 All glass effects are gated with `#available(macOS 26, *)` — the app compiles and runs identically on both targets.
@@ -216,13 +226,13 @@ All glass effects are gated with `#available(macOS 26, *)` — the app compiles 
 
 ## Permissions
 
-DockLock requests only the permissions it needs:
+Vigil Screen requests only the permissions it needs:
 
 | Permission | Why | Prompt |
 |---|---|---|
 | **Bluetooth** | To scan for nearby iPhone/Watch | When enabling Proximity Lock |
 | **Accessibility** | To register global keyboard shortcut | When customizing Panic Mode hotkey |
-| **Face ID/Touch ID** | To authenticate panic release | When enabling Panic Mode |
+| **Touch ID** | To authenticate panic release | When enabling Panic Mode |
 | **Camera** | Intruder Capture photo on failed unlock | On first failed auth attempt (lazy) |
 
 **What we DON'T ask for:** Microphone, Location, Network
@@ -231,7 +241,7 @@ DockLock requests only the permissions it needs:
 
 ## FAQ
 
-**Q: Does DockLock work with multiple Macs?**
+**Q: Does Vigil Screen work with multiple Macs?**
 A: Yes — iCloud Sync (added in v0.2.0) automatically syncs Settings, App Safelist, and Lock History across all your Macs.
 
 **Q: What if my iPhone is out of battery?**
@@ -252,8 +262,7 @@ A: Yes. Optimized for M1/M2/M3/M4 Macs.
 
 | Issue | Status | Workaround |
 |---|---|---|
-| **Panic Mode — secondary monitor not covered when connected mid-panic** | Open — planned fix in v0.2.2 | Overlays are created once at panic start. Re-trigger Panic Mode (`⌘+Shift+L` twice) after connecting the display. |
-| **Panic Mode — blur flash when switching to a safelisted app** | Fixed in v0.2.1 | — |
+| **Panic Mode — secondary monitor not covered when connected mid-panic** | Open — planned fix in v0.3.1 | Overlays are created once at panic start. Re-trigger Panic Mode (`⌘+Shift+L` twice) after connecting the display. |
 
 ---
 
@@ -263,7 +272,7 @@ A: Yes. Optimized for M1/M2/M3/M4 Macs.
 - Settings, Safelist, and History sync via iCloud KV store (v0.2.0) — no third-party servers
 - No accounts, no logins
 - Bluetooth pairing info in system Keychain (encrypted)
-- Intruder photos stored locally only (`~/Pictures/DockLock Captures/`) — never synced
+- Intruder photos stored locally only (`~/Pictures/Vigil Screen Captures/`) — never synced
 
 ### No Telemetry
 - No usage tracking, crash reporting, or analytics
@@ -300,7 +309,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 ### ✅ v0.1.0
 - Panic Mode — instant full-screen blur on all screens, safelist keeps trusted apps visible
 - Proximity Lock (Bluetooth) — auto-triggers Panic Mode before locking
-- Intruder Capture — front-camera photo on failed unlock, saved to `~/Pictures/DockLock Captures/`
+- Intruder Capture — front-camera photo on failed unlock, saved to `~/Pictures/Vigil Screen Captures/`
 - Lock History — full audit log of lock events
 - Menubar Live Stats — live RSSI + countdown in menu bar
 - Local settings, first-run onboarding
@@ -340,8 +349,8 @@ MIT License — see [LICENSE](LICENSE).
 ## Support
 
 - 📖 [Documentation](CONTRIBUTING.md)
-- 🐛 [Report Bug](https://github.com/atomsbaza/DockLock/issues/new)
-- 💡 [Request Feature](https://github.com/atomsbaza/DockLock/issues/new?labels=enhancement)
+- 🐛 [Report Bug](https://github.com/atomsbaza/VigilScreen/issues/new)
+- 💡 [Request Feature](https://github.com/atomsbaza/VigilScreen/issues/new?labels=enhancement)
 - 🔒 [Security Issue](mailto:atomsbaza2@gmail.com)
 
 ---

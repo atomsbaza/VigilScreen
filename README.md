@@ -95,10 +95,16 @@ Native macOS 26 visual design when available.
 
 > Vigil Screen is notarized by Apple (since v0.3.0) — no Gatekeeper warning on launch.
 
-### Option 2: Homebrew (Coming Soon)
+### Option 2: Homebrew
 
 ```bash
-brew install --cask vigilscreen
+brew install --cask atomsbaza/tap/vigil-screen
+```
+
+To upgrade later:
+
+```bash
+brew upgrade --cask vigil-screen
 ```
 
 ### Option 3: Build from Source

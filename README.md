@@ -87,29 +87,25 @@ Native macOS 26 visual design when available.
 
 ### Option 1: Download .dmg (Recommended)
 
-> **Note:** Vigil Screen is not notarized yet. macOS will show a security warning on first launch.
-> To open it, **right-click → Open → Open anyway**, or run in Terminal:
-> ```bash
-> xattr -cr /Applications/Vigil Screen.app
-> ```
-
 1. Download the latest release from [GitHub Releases](https://github.com/atomsbaza/VigilScreen/releases)
 2. Open `Vigil Screen.dmg`
 3. Drag **Vigil Screen.app** to Applications
-4. Launch from Applications folder — right-click → Open on first launch
+4. Launch from Applications folder
 5. Grant permissions (Bluetooth, Accessibility) when prompted
+
+> Vigil Screen is notarized by Apple (since v0.3.0) — no Gatekeeper warning on launch.
 
 ### Option 2: Homebrew (Coming Soon)
 
 ```bash
-brew install --cask docklock
+brew install --cask vigilscreen
 ```
 
 ### Option 3: Build from Source
 
 ```bash
-git clone https://github.com/atomsbaza/DockLock.git
-cd DockLock
+git clone https://github.com/atomsbaza/VigilScreen.git
+cd VigilScreen
 open VigilScreen.xcodeproj
 ```
 
@@ -140,7 +136,7 @@ open VigilScreen.xcodeproj
 
 ### 3. **Grant Accessibility Permission**
 
-On first launch, Vigil Screen will prompt you to grant Accessibility access — this is required for the global `⌘+Shift+L` shortcut to work.
+Vigil Screen will prompt for Accessibility access on every launch until it's granted — this is required for the global `⌘+Shift+L` shortcut to work.
 
 1. Click **Open Settings** in the prompt
 2. Find **Vigil Screen** in the Accessibility list and turn it **on**
@@ -174,11 +170,17 @@ VigilScreen/
 │   │   ├── AppBlocklist.swift     # Safelist — apps that stay visible during panic
 │   │   └── PanicModeView.swift    # Settings UI
 │   │
-│   └── ProximityLock/
-│       ├── BluetoothMonitor.swift # CoreBluetooth RSSI scanning
-│       ├── LockTrigger.swift      # Hysteresis + lock action
-│       ├── DiscoveredDevice.swift # Device model + signal strength
-│       └── ProximityView.swift    # Settings UI
+│   ├── ProximityLock/
+│   │   ├── BluetoothMonitor.swift # CoreBluetooth RSSI scanning + DiscoveredDevice model
+│   │   ├── LockTrigger.swift      # Hysteresis + lock action
+│   │   └── ProximityView.swift    # Settings UI
+│   │
+│   ├── ShoulderSurfing/
+│   │   ├── ShoulderSurfingDetector.swift # Vision + AVFoundation face detection
+│   │   └── ShoulderSurfingView.swift     # Settings UI
+│   │
+│   └── History/
+│       └── LockHistoryView.swift  # Lock event audit log UI
 │
 ├── Core/
 │   ├── LockEngine.swift           # Sends lock screen command
@@ -217,7 +219,7 @@ All glass effects are gated with `#available(macOS 26, *)` — the app compiles 
 |---|---|---|
 | **Language** | Swift 6.0+ | Strict concurrency enforced across the codebase |
 | **UI** | SwiftUI 6 + AppKit | Native macOS feel, menu bar integration |
-| **Frameworks** | CoreBluetooth, LocalAuthentication, CoreGraphics, Security | Pure Apple APIs, zero external dependencies |
+| **Frameworks** | CoreBluetooth, LocalAuthentication, AVFoundation, Vision, CoreGraphics, Security | Pure Apple APIs, zero external dependencies |
 | **Liquid Glass** | macOS 26+ `.glassEffect` | Adaptive — falls back gracefully on macOS 15–25 |
 | **Min Target** | macOS 15 Sequoia | Broad compatibility, Ships on all modern Macs |
 | **Build System** | Xcode 16+ | Native Swift 6 strict concurrency support |
@@ -233,7 +235,7 @@ Vigil Screen requests only the permissions it needs:
 | **Bluetooth** | To scan for nearby iPhone/Watch | When enabling Proximity Lock |
 | **Accessibility** | To register global keyboard shortcut | When customizing Panic Mode hotkey |
 | **Touch ID** | To authenticate panic release | When enabling Panic Mode |
-| **Camera** | Intruder Capture photo on failed unlock | On first failed auth attempt (lazy) |
+| **Camera** | Intruder Capture (failed-unlock photo) and Shoulder Surfing Detection (face detection, fully on-device) | On first failed auth attempt, or when enabling Shoulder Surfing Detection |
 
 **What we DON'T ask for:** Microphone, Location, Network
 
@@ -319,7 +321,6 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### ✅ v0.2.0
 - iCloud Sync — Settings, App Safelist, and Lock History sync across Macs via `NSUbiquitousKeyValueStore`
-- Notarized release — no Gatekeeper warning
 
 ### ✅ v0.2.1
 - Fix: eliminated overlay flash when switching to a safelisted app during Panic Mode — overlay alpha resets instantly on activation, mask rebuilds after a 70 ms settling window, then fades back in over 180 ms
@@ -330,6 +331,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 - Auto-release: camera stays running during Panic Mode; releases without Touch ID after the threat clears for a set delay (3–30 s)
 - Lock History shows shoulder surfing events with a purple badge
 - Camera API declared in PrivacyInfo.xcprivacy
+- Notarized release — no Gatekeeper warning
 
 ### 🔜 v0.3.1 (Planned)
 - Fix: blur overlay for secondary monitors connected after Panic Mode is already active

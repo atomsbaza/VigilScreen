@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(spctl -a *)",
+      "Bash(xcrun stapler validate *)",
+      "Bash(xcrun notarytool history *)",
+      "Bash(xcrun notarytool log *)",
+      "Bash(xcrun notarytool info *)",
+      "Bash(codesign -d *)",
+      "Bash(codesign --display *)",
+      "Bash(codesign --verify *)",
+      "Bash(hdiutil verify *)",
+      "Bash(hdiutil info)",
+      "Bash(brew list *)",
+      "Bash(brew style *)",
+      "Bash(brew audit *)",
+      "Bash(swift --version)",
+      "Bash(xcodebuild -version)",
+      "Bash(xcodebuild -list *)",
+      "Bash(xcodebuild -showsdks)",
+      "Bash(xcodebuild -showBuildSettings *)"
+    ]
+  }
+}

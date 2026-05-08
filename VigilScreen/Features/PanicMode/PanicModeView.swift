@@ -11,7 +11,12 @@ struct PanicModeView: View {
     var body: some View {
         Form {
             Section("Behaviour") {
-                Toggle("Require Touch ID to release", isOn: $settings.panicRequiresTouchID)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Require authentication to release", isOn: $settings.panicRequiresTouchID)
+                    Text("Touch ID, password, or Apple Watch double-press (when \"Use your Apple Watch to unlock apps\" is enabled in System Settings → Touch ID & Password).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Toggle("Enable ⌘⇧L global shortcut", isOn: $settings.panicShortcutEnabled)
                 Toggle("Capture photo on failed unlock", isOn: $settings.intruderCaptureEnabled)
             }

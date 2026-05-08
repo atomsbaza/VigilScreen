@@ -1,13 +1,13 @@
+import Combine
 import Foundation
 
 /// Routes NSUbiquitousKeyValueStore external-change notifications to the appropriate store.
-/// Requires `com.apple.developer.ubiquity-kvstore-identifier` entitlement — add it via
-/// Xcode → Signing & Capabilities → iCloud → Key-value storage when the paid developer
-/// account is ready. Without the entitlement the KV store silently no-ops and the app
-/// continues working via UserDefaults only.
 @MainActor
-final class CloudSyncStore {
+final class CloudSyncStore: ObservableObject {
     static let shared = CloudSyncStore()
+
+    @Published private(set) var isSignedInToICloud: Bool = false
+    @Published private(set) var lastSyncedAt: Date?
 
     private let kvStore = NSUbiquitousKeyValueStore.default
 
@@ -24,14 +24,29 @@ final class CloudSyncStore {
             name: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
             object: kvStore
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshSignInStatus),
+            name: .NSUbiquityIdentityDidChange,
+            object: nil
+        )
+        refreshSignInStatus()
     }
 
     /// Call once at launch to pull any iCloud values that arrived while the app was quit.
     func synchronize() {
-        kvStore.synchronize()
+        let didSync = kvStore.synchronize()
         SettingsStore.shared.syncFromCloud(kvStore)
         AppSafelist.shared.syncFromCloud(kvStore)
         LockHistoryStore.shared.syncFromCloud(kvStore)
+        if didSync { lastSyncedAt = Date() }
+        refreshSignInStatus()
+    }
+
+    @objc private func refreshSignInStatus() {
+        // ubiquityIdentityToken is non-nil only when the user is signed into iCloud
+        // AND iCloud Drive is enabled — the prerequisites for KV-store sync.
+        isSignedInToICloud = FileManager.default.ubiquityIdentityToken != nil
     }
 
     @objc private func handleExternalChange(_ note: Notification) {
@@ -46,5 +61,6 @@ final class CloudSyncStore {
         if keys.contains("lockHistory") {
             LockHistoryStore.shared.applyCloudUpdate(kvStore)
         }
+        lastSyncedAt = Date()
     }
 }

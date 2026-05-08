@@ -35,6 +35,7 @@ struct SettingsView: View {
 private struct GeneralSettingsView: View {
     @ObservedObject private var settings = SettingsStore.shared
     @ObservedObject private var permissions = PermissionManager.shared
+    @ObservedObject private var cloud = CloudSyncStore.shared
 
     var body: some View {
         Form {
@@ -68,13 +69,47 @@ private struct GeneralSettingsView: View {
                 }
             }
 
+            Section {
+                HStack(alignment: .center) {
+                    Label("Status", systemImage: "icloud")
+                    Spacer()
+                    if cloud.isSignedInToICloud {
+                        Label("Connected", systemImage: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .labelStyle(.titleAndIcon)
+                    } else {
+                        Button("Open iCloud Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preferences.AppleIDPrefPane") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    }
+                }
+                if let last = cloud.lastSyncedAt {
+                    HStack {
+                        Text("Last synced")
+                        Spacer()
+                        Text(last, style: .relative)
+                            .foregroundColor(.secondary)
+                    }
+                    .font(.caption)
+                }
+                Text(cloud.isSignedInToICloud
+                     ? "Settings, app safelist, and lock history sync across Macs signed into the same iCloud account."
+                     : "Sign into iCloud and enable iCloud Drive in System Settings to sync settings, safelist, and history across your Macs.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("iCloud Sync")
+            }
+
             Section("About") {
-                if let privacyURL = URL(string: "https://github.com/atomsbaza/DockLock#privacy") {
+                if let privacyURL = URL(string: "https://github.com/atomsbaza/VigilScreen#privacy--security") {
                     Link(destination: privacyURL) {
                         Label("Privacy Policy", systemImage: "hand.raised")
                     }
                 }
-                if let issuesURL = URL(string: "https://github.com/atomsbaza/DockLock/issues") {
+                if let issuesURL = URL(string: "https://github.com/atomsbaza/VigilScreen/issues") {
                     Link(destination: issuesURL) {
                         Label("Report an Issue", systemImage: "exclamationmark.bubble")
                     }

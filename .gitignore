@@ -40,8 +40,8 @@ fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
 
-# Claude Code
-.claude/
+# Claude Code — share project config, ignore machine-local state
+.claude/settings.local.json
 
 # Local notes
 PLAN.md

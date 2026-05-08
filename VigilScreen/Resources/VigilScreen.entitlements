@@ -2,20 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Required for Proximity Lock Bluetooth scanning -->
-    <key>com.apple.security.device.bluetooth</key>
-    <true/>
-
-    <!-- Required for Intruder Capture (hardened runtime camera access) -->
-    <key>com.apple.security.device.camera</key>
-    <true/>
-
-    <!-- Required for Panic Mode global keyboard shortcut -->
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <false/>
-
-    <!-- TODO (v0.2.0): Enable iCloud Key-value storage via Xcode → Signing & Capabilities
-         → iCloud → Key-value storage (requires paid Apple Developer account).
-         Xcode will auto-add: com.apple.developer.ubiquity-kvstore-identifier -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array/>
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<false/>
+	<key>com.apple.security.device.bluetooth</key>
+	<true/>
+	<key>com.apple.security.device.camera</key>
+	<true/>
 </dict>
 </plist>

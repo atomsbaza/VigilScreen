@@ -82,7 +82,7 @@ class LockHistoryStore: ObservableObject {
         guard let data = store.data(forKey: key),
               let cloudEvents = try? decoder.decode([LockEvent].self, from: data),
               !cloudEvents.isEmpty else { return }
-        let merged = Dictionary(uniqueKeysWithValues: (events + cloudEvents).map { ($0.id, $0) })
+        let merged = Dictionary((events + cloudEvents).map { ($0.id, $0) }, uniquingKeysWith: { local, _ in local })
         events = merged.values.sorted { $0.date > $1.date }
         if events.count > maxEvents { events = Array(events.prefix(maxEvents)) }
         save()

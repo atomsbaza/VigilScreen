@@ -581,7 +581,7 @@ class PanicModeManager: ObservableObject {
     private func authenticateWithBiometrics(completion: @MainActor @escaping (Bool) -> Void) {
         let context = LAContext()
         context.evaluatePolicy(.deviceOwnerAuthentication,
-                                localizedReason: "Unlock Vigil Screen Panic Mode") { success, authError in
+                                localizedReason: "unlock Vigil Screen Panic Mode") { success, authError in
             Task { @MainActor in
                 if !success, SettingsStore.shared.intruderCaptureEnabled {
                     let isSystemCancel = (authError as? LAError)?.code == .systemCancel

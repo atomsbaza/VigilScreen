@@ -42,7 +42,7 @@ xcodebuild -scheme VigilScreenTests -destination 'platform=macOS' test -only-tes
   3. Calls `.hide()` on all apps not in `AppSafelist`
   4. Shows pre-warmed `NSVisualEffectView` blur overlays on every screen (window level -1, below normal apps)
   5. 400ms later: re-hides newly-windowed apps, lowers overlay level
-  6. Release requires Touch ID (`LocalAuthentication`); on failure, `IntruderCaptureManager` saves a camera photo
+  6. Release requires authentication via `LAPolicy.deviceOwnerAuthentication` — accepts Touch ID, account password, **or** Apple Watch side-button double-press (when "Use your Apple Watch to unlock apps and your Mac" is enabled in System Settings); on failure, `IntruderCaptureManager` saves a camera photo
 - `AppSafelist.swift` — `Set<String>` (bundle IDs) persisted to `UserDefaults` as JSON
 
 ### Core Feature: Proximity Lock (`Features/ProximityLock/`)

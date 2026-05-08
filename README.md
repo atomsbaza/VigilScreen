@@ -138,7 +138,9 @@ open VigilScreen.xcodeproj
 2. Review the **App Safelist** — apps in this list stay visible above the blur (default: Terminal, Xcode, VS Code, Safari, Chrome, Slack, Notion)
 3. Add trusted apps by clicking **+** and selecting from running apps, or remove ones you don't need
 4. Customize keyboard shortcut (default: `⌘+Shift+L`)
-5. Toggle **Require Touch ID to release** for extra security
+5. Toggle **Require authentication to release** for extra security
+
+> Apple Watch double-press also unlocks Panic Mode if you have **"Use your Apple Watch to unlock apps and your Mac"** enabled in **System Settings → Touch ID & Password**. Touch ID and password fallback work as well.
 
 ### 3. **Grant Accessibility Permission**
 

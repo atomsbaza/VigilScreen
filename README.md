@@ -26,6 +26,8 @@ Blur everything instantly with one keystroke — only your trusted apps stay vis
 - Single hotkey (default: `⌘+Shift+L`) blurs all screens immediately and hides non-safelisted apps
 - **Safelist model**: apps you trust (Terminal, IDE, browsers, etc.) remain visible and interactive above the blur; everything else vanishes
 - **Fullscreen & Chromium support**: safelisted apps remain visible whether they are in a normal window, fullscreen Space, or are Chromium-based (Chrome, Edge, Brave, Arc)
+- **Audio mute** *(v0.3.3)*: system audio is silenced on panic and restored to its prior state on release
+- **Clipboard clear** *(v0.3.3)*: anything in the clipboard is wiped on panic — recently-copied passwords can't be pasted by a bystander
 - Release with Touch ID for added security
 
 ### 📸 **Intruder Capture**
@@ -333,7 +335,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 ### ✅ v0.2.1
 - Fix: eliminated overlay flash when switching to a safelisted app during Panic Mode — overlay alpha resets instantly on activation, mask rebuilds after a 70 ms settling window, then fades back in over 180 ms
 
-### ✅ v0.3.0 (Current)
+### ✅ v0.3.0
 - Shoulder Surfing Detection — continuous face detection via Vision + AVFoundation; triggers Panic Mode automatically when 2+ faces are detected for a configurable duration
 - Sensitivity slider and live face count in Settings → Shoulder Surfing tab
 - Auto-release: camera stays running during Panic Mode; releases without Touch ID after the threat clears for a set delay (3–30 s)
@@ -341,11 +343,20 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 - Camera API declared in PrivacyInfo.xcprivacy
 - Notarized release — no Gatekeeper warning
 
-### 🔜 v0.3.1 (Planned)
-- Fix: blur overlay for secondary monitors connected after Panic Mode is already active
+### ✅ v0.3.1
+- iCloud Key-Value Storage entitlement enabled
 
-### 💡 Future
-- Custom app modes (office, café, etc.)
+### ✅ v0.3.2
+- Fix: crash on launch when iCloud sync contained duplicate lock history UUIDs (`Dictionary(uniqueKeysWithValues:)` → `uniquingKeysWith:`)
+
+### ✅ v0.3.3 (Current)
+- Panic Mode now mutes system audio on trigger and restores the prior mute state on release
+- Panic Mode now clears the clipboard on trigger (not restored — intentional, prevents bystanders from pasting copied passwords)
+- Both behaviors are toggleable in Settings → Panic Mode
+
+### 🔜 Planned
+- Fix: blur overlay for secondary monitors
+- Custom app modes / profiles (office, café, travel)
 - Multiple paired Bluetooth devices (iPhone + Apple Watch)
 
 ---

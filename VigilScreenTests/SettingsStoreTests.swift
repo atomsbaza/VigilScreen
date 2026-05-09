@@ -56,4 +56,22 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(saved, !original)
         SettingsStore.shared.proximityLockEnabled = original
     }
+
+    @MainActor func testPanicAutoMuteAudio_persists() {
+        let original = SettingsStore.shared.panicAutoMuteAudio
+        SettingsStore.shared.panicAutoMuteAudio = !original
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        let saved = UserDefaults.standard.object(forKey: "panicAutoMuteAudio") as? Bool
+        XCTAssertEqual(saved, !original)
+        SettingsStore.shared.panicAutoMuteAudio = original
+    }
+
+    @MainActor func testPanicClearClipboard_persists() {
+        let original = SettingsStore.shared.panicClearClipboard
+        SettingsStore.shared.panicClearClipboard = !original
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        let saved = UserDefaults.standard.object(forKey: "panicClearClipboard") as? Bool
+        XCTAssertEqual(saved, !original)
+        SettingsStore.shared.panicClearClipboard = original
+    }
 }

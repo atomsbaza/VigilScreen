@@ -92,7 +92,9 @@ extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         if (notification.object as? NSWindow) === settingsWindow {
             settingsWindow = nil
-            // Revert to accessory so the Dock icon disappears when settings is closed.
+            // Don't revert to .accessory while panic is active — panic mode owns the
+            // .regular policy so its .hideMenuBar presentationOptions stay in effect.
+            guard !PanicModeManager.shared.isActive else { return }
             NSApp.setActivationPolicy(.accessory)
         }
     }

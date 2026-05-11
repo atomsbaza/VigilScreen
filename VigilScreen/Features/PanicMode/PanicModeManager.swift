@@ -5,7 +5,7 @@ import QuartzCore
 
 private extension NSScreen {
     var displayID: CGDirectDisplayID {
-        (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+        (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value ?? 0
     }
 }
 
@@ -108,6 +108,29 @@ class PanicModeManager: ObservableObject {
             $0.orderOut(nil)
         }
         cachedSafelistMasks.removeAll()
+    }
+
+    /// Reconciles overlay windows with the current set of connected displays.
+    /// Called when a display is connected or disconnected while panic is active.
+    /// Only touches screens that actually changed — existing overlays remain undisturbed.
+    private func handleScreenConfigurationChange() {
+        guard isActive, !isAuthenticating else { return }
+        let currentScreens = NSScreen.screens
+        let currentIDs = Set(currentScreens.map { $0.displayID })
+
+        // Remove overlays for disconnected screens
+        for id in overlayWindows.keys where !currentIDs.contains(id) {
+            overlayWindows[id]?.orderOut(nil)
+            overlayWindows.removeValue(forKey: id)
+            cachedSafelistMasks.removeValue(forKey: id)
+        }
+
+        // Create and show overlays only for newly connected screens
+        for screen in currentScreens where overlayWindows[screen.displayID] == nil {
+            let win = overlayWindow(for: screen)
+            win.alphaValue = 1
+            win.orderFrontRegardless()
+        }
     }
 
     // MARK: - Vigil Screen Window Level Management
@@ -333,6 +356,14 @@ class PanicModeManager: ObservableObject {
             .publisher(for: NSWorkspace.screensDidWakeNotification)
             .sink { [weak self] _ in self?.clearWithoutUnhiding() }
             .store(in: &cancellables)
+
+        // Reconcile overlays when displays are connected/disconnected during panic.
+        NotificationCenter.default
+            .publisher(for: NSApplication.didChangeScreenParametersNotification)
+            .filter { [weak self] _ in self?.isActive == true }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.handleScreenConfigurationChange() }
+            .store(in: &cancellables)
     }
 
     // MARK: - Panic
@@ -344,6 +375,14 @@ class PanicModeManager: ObservableObject {
         hideStageManager()
 
         isActive = true
+
+        // Switch to .regular and become frontmost so .hideMenuBar takes effect.
+        // .presentationOptions are only honoured for the frontmost app; .accessory
+        // apps are never considered frontmost, so the menu bar would remain visible.
+        // .hideDock is required whenever .hideMenuBar is used (Apple requirement).
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.presentationOptions = [.hideMenuBar, .hideDock]
 
         // Raise Vigil Screen's own windows above the overlay so the user can still
         // access settings and the menu bar popover during panic.
@@ -413,7 +452,16 @@ class PanicModeManager: ObservableObject {
         // the new window order but the stale mask (the "blur flash").
         center.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
-            .sink { [weak self] app in self?.updateBlurOverlay(for: app) }
+            .sink { [weak self] app in
+                guard let self else { return }
+                // If a non-safelisted third-party app somehow becomes frontmost, reclaim
+                // frontmost status so our .hideMenuBar presentationOption stays in effect.
+                let isOurs = app.bundleIdentifier == Bundle.main.bundleIdentifier
+                if !isOurs && !self.isSafelisted(app) && app.activationPolicy == .regular {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                self.updateBlurOverlay(for: app)
+            }
             .store(in: &panicCancellables)
 
         // On Space switch, bring overlays to the front of the screenSaver level.
@@ -441,20 +489,17 @@ class PanicModeManager: ObservableObject {
         if !isSafelisted(app) && app.activationPolicy == .regular {
             // Non-safelisted: apply full blur synchronously. Nothing to settle,
             // so no delay needed — the user never sees an un-blurred frame.
-            setOverlayAlphaInstant(1)
+            setOverlayAlphaInstant(1, only: nil)  // all screens
             overlayWindows.values.forEach { $0.orderFrontRegardless() }
             applyMasks(frontmostApp: app)
         } else {
             // Safelisted: clear the blur immediately (alpha 0), then re-check and
             // re-apply after the new window finishes its on-activation relayout.
-            //
-            // During the delay the cached mask is not shown at all, so a stale or
-            // narrow hole can't reveal itself. When the delay expires we rebuild
-            // from the settled AX rect and snap the overlay back in with correct
-            // holes. Both alpha transitions are wrapped in a disabled-actions
-            // CATransaction + forced display so they happen this frame, not via
-            // an implicit Core Animation fade.
-            setOverlayAlphaInstant(0)
+            let activeDisplayID = NSScreen.screens.first {
+                $0.frame.contains(NSEvent.mouseLocation)
+            }?.displayID
+
+            setOverlayAlphaInstant(0, only: activeDisplayID)
 
             let work = DispatchWorkItem { [weak self] in
                 guard let self, self.isActive, !self.isAuthenticating else { return }
@@ -471,11 +516,7 @@ class PanicModeManager: ObservableObject {
                     self.rebuildMaskCache()
                 }
                 self.applyMasks(frontmostApp: current)
-                // Fade back in instead of snapping — any remaining inaccuracy in the
-                // mask reads as a gentle reveal rather than a sharp flash. The 250 ms
-                // background loop re-rebuilds the cache mid-fade, so slow-settling
-                // windows correct themselves while the overlay is still transparent.
-                self.fadeOverlayAlpha(to: 1, duration: 0.18)
+                self.fadeOverlayAlpha(to: 1, duration: 0.18, only: activeDisplayID)
                 self.pendingActivationWork = nil
             }
             pendingActivationWork = work
@@ -485,12 +526,17 @@ class PanicModeManager: ObservableObject {
 
     /// Smoothly fades the overlay alpha over `duration` seconds. Uses the window
     /// animator proxy so the change is driven by the display link, not an abrupt set.
-    private func fadeOverlayAlpha(to alpha: CGFloat, duration: TimeInterval) {
+    /// When `only` is provided, only the overlay on that display is affected.
+    private func fadeOverlayAlpha(to alpha: CGFloat, duration: TimeInterval, only displayID: CGDirectDisplayID? = nil) {
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = duration
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            for win in overlayWindows.values {
+            if let displayID, let win = overlayWindows[displayID] {
                 win.animator().alphaValue = alpha
+            } else {
+                for win in overlayWindows.values {
+                    win.animator().alphaValue = alpha
+                }
             }
         }
     }
@@ -499,15 +545,21 @@ class PanicModeManager: ObservableObject {
     /// macOS wraps NSWindow.alphaValue in an implicit animation inside an
     /// NSAnimationContext; wrapping in a disabled-actions CATransaction and
     /// forcing the backing layer to display suppresses the fade.
-    private func setOverlayAlphaInstant(_ alpha: CGFloat) {
+    /// When `only` is provided, only the overlay on that display is affected.
+    private func setOverlayAlphaInstant(_ alpha: CGFloat, only displayID: CGDirectDisplayID? = nil) {
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0
             ctx.allowsImplicitAnimation = false
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            for win in overlayWindows.values {
+            if let displayID, let win = overlayWindows[displayID] {
                 win.alphaValue = alpha
                 win.contentView?.layer?.displayIfNeeded()
+            } else {
+                for win in overlayWindows.values {
+                    win.alphaValue = alpha
+                    win.contentView?.layer?.displayIfNeeded()
+                }
             }
             CATransaction.commit()
         }
@@ -558,6 +610,8 @@ class PanicModeManager: ObservableObject {
         pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
+        NSApp.presentationOptions = []
+        NSApp.setActivationPolicy(.accessory)
         restoreVigilWindows()
         dismissAllOverlays()
         unhideStageManager()
@@ -571,6 +625,8 @@ class PanicModeManager: ObservableObject {
         pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
+        NSApp.presentationOptions = []
+        NSApp.setActivationPolicy(.accessory)
         restoreVigilWindows()
         dismissAllOverlays()
         isActive = false

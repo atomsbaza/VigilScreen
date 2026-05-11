@@ -19,6 +19,18 @@ struct PanicModeView: View {
                 }
                 Toggle("Enable ⌘⇧L global shortcut", isOn: $settings.panicShortcutEnabled)
                 Toggle("Capture photo on failed unlock", isOn: $settings.intruderCaptureEnabled)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Mute audio during Panic Mode", isOn: $settings.panicAutoMuteAudio)
+                    Text("System audio is muted on panic and restored when you release. Per-app mute isn't available on macOS, so all output is silenced.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Clear clipboard on Panic Mode", isOn: $settings.panicClearClipboard)
+                    Text("Anything copied is wiped when panic triggers and is not restored — this prevents recently-copied passwords from being pasted by a bystander.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section {

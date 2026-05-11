@@ -2,10 +2,67 @@ import AppKit
 import LocalAuthentication
 import Combine
 import QuartzCore
+import CoreAudio
 
 private extension NSScreen {
     var displayID: CGDirectDisplayID {
         (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+    }
+}
+
+/// Mutes the default system output device on panic and restores the prior mute
+/// state on release. macOS has no per-app mute, so the only honest option is to
+/// silence the whole output. Volume is left untouched — only the mute flag is
+/// toggled — so the user's level is preserved across the round-trip.
+private final class AudioMuteController {
+    private var savedMuteState: UInt32?
+
+    private func defaultOutputDevice() -> AudioDeviceID? {
+        var device: AudioDeviceID = 0
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &addr, 0, nil, &size, &device
+        )
+        return status == noErr ? device : nil
+    }
+
+    private func muteAddress() -> AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+    }
+
+    func muteAndRemember() {
+        guard let device = defaultOutputDevice() else { return }
+        var addr = muteAddress()
+        var current: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(device, &addr, 0, nil, &size, &current) == noErr else { return }
+        savedMuteState = current
+        if current == 0 {
+            var muted: UInt32 = 1
+            AudioObjectSetPropertyData(device, &addr, 0, nil, size, &muted)
+        }
+    }
+
+    func restore() {
+        guard let saved = savedMuteState, let device = defaultOutputDevice() else {
+            savedMuteState = nil
+            return
+        }
+        var addr = muteAddress()
+        var value = saved
+        let size = UInt32(MemoryLayout<UInt32>.size)
+        AudioObjectSetPropertyData(device, &addr, 0, nil, size, &value)
+        savedMuteState = nil
     }
 }
 
@@ -21,6 +78,7 @@ class PanicModeManager: ObservableObject {
     private var shortcutMonitor: Any?
     private let safelist = AppSafelist.shared
     private let settings = SettingsStore.shared
+    private let audioMute = AudioMuteController()
     private var cancellables = Set<AnyCancellable>()
 
     // One overlay per screen, always at .screenSaver (1000) during panic.
@@ -345,6 +403,9 @@ class PanicModeManager: ObservableObject {
 
         isActive = true
 
+        if settings.panicAutoMuteAudio { audioMute.muteAndRemember() }
+        if settings.panicClearClipboard { NSPasteboard.general.clearContents() }
+
         // Raise Vigil Screen's own windows above the overlay so the user can still
         // access settings and the menu bar popover during panic.
         raiseVigilWindows(to: panicVigilLevel)
@@ -552,6 +613,7 @@ class PanicModeManager: ObservableObject {
     }
 
     private func unhideAll() {
+        audioMute.restore()
         panicTask?.cancel()
         panicTask = nil
         pendingActivationWork?.cancel()

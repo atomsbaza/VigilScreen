@@ -7,6 +7,8 @@ class SettingsStore: ObservableObject {
     @Published var launchAtLogin: Bool
     @Published var panicShortcutEnabled: Bool
     @Published var panicRequiresTouchID: Bool
+    @Published var panicAutoMuteAudio: Bool
+    @Published var panicClearClipboard: Bool
     @Published var proximityLockEnabled: Bool
     @Published var proximityLockDelay: Double
     @Published var proximityRSSIThreshold: Double
@@ -24,6 +26,8 @@ class SettingsStore: ObservableObject {
         launchAtLogin            = d.bool(forKey: Keys.launchAtLogin)
         panicShortcutEnabled     = d.object(forKey: Keys.panicShortcutEnabled)     as? Bool   ?? true
         panicRequiresTouchID     = d.object(forKey: Keys.panicRequiresTouchID)     as? Bool   ?? true
+        panicAutoMuteAudio       = d.object(forKey: Keys.panicAutoMuteAudio)       as? Bool   ?? true
+        panicClearClipboard      = d.object(forKey: Keys.panicClearClipboard)      as? Bool   ?? true
         proximityLockEnabled     = d.bool(forKey: Keys.proximityLockEnabled)
         proximityLockDelay       = d.object(forKey: Keys.proximityLockDelay)       as? Double ?? 10.0
         proximityRSSIThreshold   = d.object(forKey: Keys.proximityRSSIThreshold)   as? Double ?? -75.0
@@ -37,6 +41,8 @@ class SettingsStore: ObservableObject {
         persist(\.$launchAtLogin,             key: Keys.launchAtLogin,            cloud: false)
         persist(\.$panicShortcutEnabled,      key: Keys.panicShortcutEnabled)
         persist(\.$panicRequiresTouchID,      key: Keys.panicRequiresTouchID,     cloud: false)
+        persist(\.$panicAutoMuteAudio,        key: Keys.panicAutoMuteAudio,       cloud: false)
+        persist(\.$panicClearClipboard,       key: Keys.panicClearClipboard,      cloud: false)
         persist(\.$proximityLockEnabled,      key: Keys.proximityLockEnabled)
         persist(\.$proximityLockDelay,        key: Keys.proximityLockDelay)
         persist(\.$proximityRSSIThreshold,    key: Keys.proximityRSSIThreshold)
@@ -85,6 +91,8 @@ class SettingsStore: ObservableObject {
         static let launchAtLogin          = "launchAtLogin"
         static let panicShortcutEnabled   = "panicShortcutEnabled"
         static let panicRequiresTouchID   = "panicRequiresTouchID"
+        static let panicAutoMuteAudio     = "panicAutoMuteAudio"
+        static let panicClearClipboard    = "panicClearClipboard"
         static let proximityLockEnabled   = "proximityLockEnabled"
         static let proximityLockDelay     = "proximityLockDelay"
         static let proximityRSSIThreshold = "proximityRSSIThreshold"
@@ -95,7 +103,7 @@ class SettingsStore: ObservableObject {
         static let shoulderSurfingAutoRelease  = "shoulderSurfingAutoRelease"
         static let shoulderSurfingReleaseDelay = "shoulderSurfingReleaseDelay"
 
-        // launchAtLogin, panicRequiresTouchID, intruderCaptureEnabled, shoulderSurfingEnabled/AutoRelease are per-machine security controls
+        // launchAtLogin, panicRequiresTouchID, panicAutoMuteAudio, panicClearClipboard, intruderCaptureEnabled, shoulderSurfingEnabled/AutoRelease are per-machine security controls
         static let allCloudKeys: [String] = [
             panicShortcutEnabled, proximityLockEnabled,
             proximityLockDelay, proximityRSSIThreshold, showMenuBarStats,

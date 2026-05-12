@@ -50,12 +50,15 @@ class PanicModeManager: ObservableObject {
 
     private func overlayWindow(for screen: NSScreen) -> NSWindow {
         let displayID = screen.displayID
+        // visibleFrame excludes the menu bar (and Dock when not auto-hidden), so the
+        // system menu bar stays fully unobscured by our overlay or its blur effect.
+        let overlay = screen.visibleFrame
         if let existing = overlayWindows[displayID] {
-            existing.setFrame(screen.frame, display: false)
+            existing.setFrame(overlay, display: false)
             return existing
         }
         let win = NSWindow(
-            contentRect: screen.frame,
+            contentRect: overlay,
             styleMask: .borderless,
             backing: .buffered,
             defer: false
@@ -68,13 +71,31 @@ class PanicModeManager: ObservableObject {
         win.ignoresMouseEvents = true
         win.animationBehavior = .none
 
-        let blur = NSVisualEffectView(frame: NSRect(origin: .zero, size: screen.frame.size))
+        // Two-layer overlay:
+        //   1. Dark CALayer-backed NSView — guaranteed to render on every display,
+        //      including externals where NSVisualEffectView's compositor blur silently fails.
+        //   2. NSVisualEffectView on top — provides the real blur aesthetic where the
+        //      compositor can render it (usually the built-in display).
+        // applyMasks() masks both simultaneously: CALayer.mask on the cover, .maskImage
+        // on the blur. Safelisted-app holes show through both layers.
+        let cover = NSView(frame: NSRect(origin: .zero, size: overlay.size))
+        cover.wantsLayer = true
+        // alpha < 1 keeps the window content non-opaque so NSVisualEffectView's
+        // .behindWindow compositor blur engages. The layer is only a fallback for
+        // displays where the blur fails to render; the blur on top is opaque enough
+        // to hide content where it does render.
+        cover.layer?.backgroundColor = NSColor(white: 0.05, alpha: 0.6).cgColor
+        cover.autoresizingMask = [.width, .height]
+
+        let blur = NSVisualEffectView(frame: NSRect(origin: .zero, size: overlay.size))
         blur.material = .hudWindow
         blur.blendingMode = .behindWindow
         blur.state = .active
         blur.appearance = NSAppearance(named: .darkAqua)
         blur.autoresizingMask = [.width, .height]
-        win.contentView = blur
+        cover.addSubview(blur)
+
+        win.contentView = cover
 
         overlayWindows[displayID] = win
         return win
@@ -102,7 +123,8 @@ class PanicModeManager: ObservableObject {
 
     private func dismissAllOverlays() {
         overlayWindows.values.forEach {
-            ($0.contentView as? NSVisualEffectView)?.maskImage = nil
+            $0.contentView?.layer?.mask = nil
+            ($0.contentView?.subviews.first as? NSVisualEffectView)?.maskImage = nil
             $0.level = .screenSaver
             $0.alphaValue = 0
             $0.orderOut(nil)
@@ -151,14 +173,28 @@ class PanicModeManager: ObservableObject {
 
     // MARK: - Overlay Mask (transparent holes for safelisted app windows)
 
-    /// Returns window rects for all visible safelisted apps, in screen-local coordinates.
-    private func safelistedWindowRects(for screen: NSScreen) -> [NSRect] {
-        let mainH = NSScreen.main?.frame.height ?? 0
-        let screenBounds = NSRect(origin: .zero, size: screen.frame.size)
+    /// Returns window rects for the given app on `screen`, in screen-local coordinates.
+    /// Only returns rects for apps in the safelist; if `onlyApp` is provided, filters to
+    /// that single process so holes only appear for the frontmost safelisted app.
+    ///
+    /// Uses CGWindowList as the source of truth for window bounds — AX size is
+    /// unreliable for Chromium/Electron apps (it sometimes returns the inner content
+    /// view or a child window rather than the actual top-level window). AX is only
+    /// consulted for the fullscreen flag, which CGWindowList doesn't expose.
+    private func safelistedWindowRects(for screen: NSScreen,
+                                       onlyApp: NSRunningApplication? = nil) -> [NSRect] {
+        // CGWindowBounds is in CG global space — y-flip MUST use the primary display's
+        // height (the screen with the menu bar), not NSScreen.main which tracks the
+        // focused screen and changes as the user moves between displays. When primary
+        // and focused screens have different heights, NSScreen.main produces a wrong
+        // offset that shifts every hole vertically.
+        let mainH = CGDisplayBounds(CGMainDisplayID()).height
+        // The overlay covers visibleFrame, not the full screen.frame — all rects must
+        // be translated relative to visibleFrame.origin and clipped to visibleFrame.size.
+        let overlay = screen.visibleFrame
+        let screenBounds = NSRect(origin: .zero, size: overlay.size)
         var rects: [NSRect] = []
 
-        // CGWindowList snapshot — queried once per call, shared across all apps.
-        // More reliable than AX for apps with limited accessibility support (e.g. Chrome/Electron).
         let cgWindowList = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
         ) as? [[String: Any]] ?? []
@@ -168,81 +204,51 @@ class PanicModeManager: ObservableObject {
                   safelist.bundleIDs.contains(id),
                   !app.isHidden,
                   app.activationPolicy == .regular else { continue }
+            if let onlyApp, app.processIdentifier != onlyApp.processIdentifier { continue }
 
+            // Probe AX only for the fullscreen flag. If any window is fullscreen,
+            // punch a full-screen hole and skip CGWindowList lookup for this app —
+            // fullscreen AX positions are unreliable but the result is always "everything".
+            var appIsFullscreen = false
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var windowsRef: CFTypeRef?
-            let axOK = AXUIElementCopyAttributeValue(axApp, "AXWindows" as CFString, &windowsRef) == .success
-            let axWindows = windowsRef as? [AXUIElement] ?? []
-
-            if axOK && !axWindows.isEmpty {
+            if AXUIElementCopyAttributeValue(axApp, "AXWindows" as CFString, &windowsRef) == .success,
+               let axWindows = windowsRef as? [AXUIElement] {
                 for window in axWindows {
-                    // Fullscreen windows occupy the entire screen; punch a full-screen hole
-                    // rather than going through the normal coordinate conversion (which can
-                    // produce out-of-bounds rects for fullscreen AX positions).
                     var fullscreenRef: CFTypeRef?
                     if AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &fullscreenRef) == .success,
                        let isFS = fullscreenRef as? Bool, isFS {
-                        rects.append(NSRect(origin: .zero, size: screen.frame.size))
-                        continue
+                        appIsFullscreen = true
+                        break
                     }
-
-                    var posRef: CFTypeRef?
-                    var sizeRef: CFTypeRef?
-                    guard AXUIElementCopyAttributeValue(window, "AXPosition" as CFString, &posRef) == .success,
-                          AXUIElementCopyAttributeValue(window, "AXSize" as CFString, &sizeRef) == .success,
-                          let posAX = posRef, let sizeAX = sizeRef else { continue }
-
-                    var axPos  = CGPoint.zero
-                    var axSize = CGSize.zero
-                    guard CFGetTypeID(posAX) == AXValueGetTypeID(),
-                          CFGetTypeID(sizeAX) == AXValueGetTypeID() else { continue }
-                    AXValueGetValue(posAX as! AXValue, .cgPoint, &axPos)
-                    AXValueGetValue(sizeAX as! AXValue, .cgSize,  &axSize)
-
-                    // Convert AX coords (top-left origin, y increases downward) to
-                    // Quartz display coords (bottom-left origin, y increases upward).
-                    let quartzRect = NSRect(
-                        x: axPos.x,
-                        y: mainH - axPos.y - axSize.height,
-                        width: axSize.width,
-                        height: axSize.height
-                    )
-                    // Translate to overlay window-local coordinates (origin = screen.frame.origin).
-                    let localRect = NSRect(
-                        x: quartzRect.origin.x - screen.frame.origin.x,
-                        y: quartzRect.origin.y - screen.frame.origin.y,
-                        width: quartzRect.size.width,
-                        height: quartzRect.size.height
-                    )
-                    let clipped = localRect.intersection(screenBounds)
-                    if !clipped.isNull { rects.append(clipped) }
                 }
-            } else {
-                // AX gave no windows (common for Chrome/Electron apps). Fall back to
-                // CGWindowList which works for all apps regardless of AX support.
-                // CGWindowBounds also uses top-left origin so the same y-flip applies.
-                let pid = app.processIdentifier
-                for info in cgWindowList {
-                    // kCGWindowOwnerPID bridges as Int (not Int32/pid_t) from CFNumber.
-                    // kCGWindowBounds bridges as NSDictionary — use CGRect(dictionaryRepresentation:).
-                    guard let ownerPID = info[kCGWindowOwnerPID as String] as? Int,
-                          pid_t(ownerPID) == pid,
-                          let boundsNS = info[kCGWindowBounds as String] as? NSDictionary,
-                          let cgBounds = CGRect(dictionaryRepresentation: boundsNS as CFDictionary),
-                          cgBounds.width > 0, cgBounds.height > 50 else { continue }
+            }
+            if appIsFullscreen {
+                rects.append(NSRect(origin: .zero, size: overlay.size))
+                continue
+            }
 
-                    // CGWindowBounds: top-left origin (same as AX) → flip to Quartz bottom-left.
-                    let quartzRect = NSRect(x: cgBounds.minX, y: mainH - cgBounds.minY - cgBounds.height,
-                                           width: cgBounds.width, height: cgBounds.height)
-                    let localRect = NSRect(
-                        x: quartzRect.origin.x - screen.frame.origin.x,
-                        y: quartzRect.origin.y - screen.frame.origin.y,
-                        width: quartzRect.size.width,
-                        height: quartzRect.size.height
-                    )
-                    let clipped = localRect.intersection(screenBounds)
-                    if !clipped.isNull { rects.append(clipped) }
-                }
+            // CGWindowBounds: top-left origin (same as AX) → flip to AppKit bottom-left.
+            let pid = app.processIdentifier
+            for info in cgWindowList {
+                // kCGWindowOwnerPID bridges as Int from CFNumber.
+                // kCGWindowBounds bridges as NSDictionary — use CGRect(dictionaryRepresentation:).
+                guard let ownerPID = info[kCGWindowOwnerPID as String] as? Int,
+                      pid_t(ownerPID) == pid,
+                      let boundsNS = info[kCGWindowBounds as String] as? NSDictionary,
+                      let cgBounds = CGRect(dictionaryRepresentation: boundsNS as CFDictionary),
+                      cgBounds.width > 0, cgBounds.height > 50 else { continue }
+
+                let quartzRect = NSRect(x: cgBounds.minX, y: mainH - cgBounds.minY - cgBounds.height,
+                                       width: cgBounds.width, height: cgBounds.height)
+                let localRect = NSRect(
+                    x: quartzRect.origin.x - overlay.origin.x,
+                    y: quartzRect.origin.y - overlay.origin.y,
+                    width: quartzRect.size.width,
+                    height: quartzRect.size.height
+                )
+                let clipped = localRect.intersection(screenBounds)
+                if !clipped.isNull { rects.append(clipped) }
             }
         }
         return rects
@@ -250,10 +256,13 @@ class PanicModeManager: ObservableObject {
 
     /// Builds a mask image: opaque (white) everywhere except transparent holes over safelisted windows.
     /// NSVisualEffectView.maskImage: transparent pixels receive no visual effect and show through.
+    /// Mask is sized to the overlay (visibleFrame), not the full screen, since that's
+    /// what the cover layer and blur view are sized to.
     private func makeMaskImage(for screen: NSScreen, safeRects: [NSRect]) -> NSImage {
         let scale = screen.backingScaleFactor
-        let pw = Int(screen.frame.width  * scale)
-        let ph = Int(screen.frame.height * scale)
+        let overlaySize = screen.visibleFrame.size
+        let pw = Int(overlaySize.width  * scale)
+        let ph = Int(overlaySize.height * scale)
 
         guard let ctx = CGContext(
             data: nil,
@@ -261,7 +270,7 @@ class PanicModeManager: ObservableObject {
             bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return NSImage(size: screen.frame.size) }
+        ) else { return NSImage(size: overlaySize) }
 
         // Opaque white = blur applied everywhere by default.
         ctx.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
@@ -279,16 +288,21 @@ class PanicModeManager: ObservableObject {
             if !px.isNull { ctx.fill(px) }
         }
 
-        guard let cg = ctx.makeImage() else { return NSImage(size: screen.frame.size) }
-        return NSImage(cgImage: cg, size: screen.frame.size)
+        guard let cg = ctx.makeImage() else { return NSImage(size: overlaySize) }
+        return NSImage(cgImage: cg, size: overlaySize)
     }
 
-    /// Rebuilds the cached safelist mask (one per screen) from current AX window rects.
+    /// Rebuilds the cached safelist mask for `app` only (one entry per screen).
+    /// Passing nil clears the cache — used when no safelisted app is frontmost.
     /// Expensive — do not call on the hot path of an app-activation notification.
-    private func rebuildMaskCache() {
+    private func rebuildMaskCache(for app: NSRunningApplication?) {
+        guard let app, isSafelisted(app) else {
+            cachedSafelistMasks.removeAll()
+            return
+        }
         var new: [CGDirectDisplayID: NSImage] = [:]
         for screen in NSScreen.screens {
-            let safeRects = safelistedWindowRects(for: screen)
+            let safeRects = safelistedWindowRects(for: screen, onlyApp: app)
             guard !safeRects.isEmpty else { continue }
             new[screen.displayID] = makeMaskImage(for: screen, safeRects: safeRects)
         }
@@ -297,7 +311,7 @@ class PanicModeManager: ObservableObject {
 
     /// Applies the right mask to each overlay based on what's frontmost, using only
     /// the cached mask images. Runs in constant time — safe for activation callbacks.
-    /// If the frontmost app is non-safelisted, applies full blur with no holes —
+    /// If the frontmost app is non-safelisted, removes any holes (full dark coverage) —
     /// preventing safelisted holes from revealing content of overlapping non-safelisted apps.
     ///
     /// Pass `frontmostApp` directly from a `didActivate` notification when available —
@@ -309,22 +323,33 @@ class PanicModeManager: ObservableObject {
             return !isSafelisted(app) && app.activationPolicy == .regular
         } ?? false
 
-        // Wrap in a CATransaction with actions disabled: setting `maskImage` on an
-        // NSVisualEffectView otherwise triggers an implicit crossfade between masks,
-        // which itself reads as a "blur flash" when swapping nil ↔ holes.
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for (displayID, win) in overlayWindows {
-            guard let effectView = win.contentView as? NSVisualEffectView else { continue }
-            effectView.maskImage = frontmostIsNonSafelisted ? nil : cachedSafelistMasks[displayID]
-            effectView.layer?.displayIfNeeded()
+            guard let cover = win.contentView, let contentLayer = cover.layer else { continue }
+            let blur = cover.subviews.first as? NSVisualEffectView
+            let holesMask = frontmostIsNonSafelisted ? nil : cachedSafelistMasks[displayID]
+            if let holesMask,
+               let cgImg = holesMask.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                // Mask the dark cover layer so safelisted windows show through.
+                let maskLayer = contentLayer.mask ?? CALayer()
+                maskLayer.contents = cgImg
+                maskLayer.frame = CGRect(origin: .zero, size: contentLayer.bounds.size)
+                contentLayer.mask = maskLayer
+                // Mask the blur layer the same way so the blur also has holes.
+                blur?.maskImage = holesMask
+            } else {
+                contentLayer.mask = nil   // full coverage, no holes
+                blur?.maskImage = nil
+            }
+            contentLayer.displayIfNeeded()
         }
         CATransaction.commit()
     }
 
-    /// Refreshes cache then applies. Used by the periodic loop and on panic start.
+    /// Refreshes cache then applies. Holes are built for the current frontmost safelisted app only.
     private func updateOverlayMasks() {
-        rebuildMaskCache()
+        rebuildMaskCache(for: NSWorkspace.shared.frontmostApplication)
         applyMasks()
     }
 
@@ -364,6 +389,12 @@ class PanicModeManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.handleScreenConfigurationChange() }
             .store(in: &cancellables)
+
+        // Pre-warm overlay windows at launch so CALayer backing is allocated before
+        // panic triggers. Deferred one runloop to not compete with app startup.
+        DispatchQueue.main.async { [weak self] in
+            self?.prewarmOverlays()
+        }
     }
 
     // MARK: - Panic
@@ -376,26 +407,33 @@ class PanicModeManager: ObservableObject {
 
         isActive = true
 
-        // Switch to .regular and become frontmost so .hideMenuBar takes effect.
-        // .presentationOptions are only honoured for the frontmost app; .accessory
-        // apps are never considered frontmost, so the menu bar would remain visible.
-        // .hideDock is required whenever .hideMenuBar is used (Apple requirement).
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.presentationOptions = [.hideMenuBar, .hideDock]
-
         // Raise Vigil Screen's own windows above the overlay so the user can still
         // access settings and the menu bar popover during panic.
         raiseVigilWindows(to: panicVigilLevel)
 
-        prewarmOverlays()
+        // Show blur. Overlays were pre-warmed at launch so this is instant (no
+        // window allocation). The system menu bar is intentionally left visible —
+        // covering it would require switching to .regular policy and force-activating
+        // Vigil Screen, which fights every safelisted-app activation and complicates
+        // the panic flow. The menu bar doesn't expose screen content, only the
+        // previously-active app's name + system status.
         setOverlayLevel(.screenSaver)
         showOverlaysOnAllScreens()
-        updateOverlayMasks()
+
+        // Apply cached masks instantly (nil cache = full blur, safe on first trigger).
+        // Defer the expensive AX rebuild so it runs after blur is already on screen.
+        applyMasks()
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.isActive else { return }
+            self.updateOverlayMasks()
+        }
+
         startMonitoringSpaceSwitches()
 
-        // Continuously keep overlays at the top of the screenSaver level and refresh
-        // the maskImage so safelisted window positions stay accurate as windows move.
+        // Keep overlays at the top every 250 ms and refresh the mask for the current
+        // frontmost safelisted app so window moves/resizes are picked up. Per-app
+        // rebuild only queries one process (~2–8 ms), unlike the old all-safelisted
+        // rebuild which scanned every safelisted process (50–200 ms).
         panicTask?.cancel()
         panicTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 200_000_000)   // 200 ms initial wait
@@ -405,7 +443,11 @@ class PanicModeManager: ObservableObject {
                 await MainActor.run { [weak self] in
                     guard let self, self.isActive, !self.isAuthenticating else { return }
                     self.overlayWindows.values.forEach { $0.orderFrontRegardless() }
-                    self.updateOverlayMasks()
+                    if let frontmost = NSWorkspace.shared.frontmostApplication,
+                       self.isSafelisted(frontmost) {
+                        self.rebuildMaskCache(for: frontmost)
+                        self.applyMasks(frontmostApp: frontmost)
+                    }
                 }
                 try? await Task.sleep(nanoseconds: 250_000_000)   // 250 ms
             }
@@ -452,16 +494,7 @@ class PanicModeManager: ObservableObject {
         // the new window order but the stale mask (the "blur flash").
         center.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
-            .sink { [weak self] app in
-                guard let self else { return }
-                // If a non-safelisted third-party app somehow becomes frontmost, reclaim
-                // frontmost status so our .hideMenuBar presentationOption stays in effect.
-                let isOurs = app.bundleIdentifier == Bundle.main.bundleIdentifier
-                if !isOurs && !self.isSafelisted(app) && app.activationPolicy == .regular {
-                    NSApp.activate(ignoringOtherApps: true)
-                }
-                self.updateBlurOverlay(for: app)
-            }
+            .sink { [weak self] app in self?.updateBlurOverlay(for: app) }
             .store(in: &panicCancellables)
 
         // On Space switch, bring overlays to the front of the screenSaver level.
@@ -493,30 +526,25 @@ class PanicModeManager: ObservableObject {
             overlayWindows.values.forEach { $0.orderFrontRegardless() }
             applyMasks(frontmostApp: app)
         } else {
-            // Safelisted: clear the blur immediately (alpha 0), then re-check and
-            // re-apply after the new window finishes its on-activation relayout.
-            let activeDisplayID = NSScreen.screens.first {
-                $0.frame.contains(NSEvent.mouseLocation)
-            }?.displayID
-
-            setOverlayAlphaInstant(0, only: activeDisplayID)
+            // Safelisted: apply mask immediately at current positions, then rebuild
+            // with settled positions after the app finishes its on-activation relayout.
+            // No alpha tricks needed — CALayer mask updates are instantaneous and
+            // don't produce visual artifacts on any display.
+            applyMasks(frontmostApp: app)
 
             let work = DispatchWorkItem { [weak self] in
                 guard let self, self.isActive, !self.isAuthenticating else { return }
-
-                // Re-evaluate frontmost at fire time — the user may have switched
-                // again during the delay; rebuild for whoever is actually frontmost.
                 let current = NSWorkspace.shared.frontmostApplication
                 let currentIsNonSafelisted = current.map { c -> Bool in
                     guard c.bundleIdentifier != Bundle.main.bundleIdentifier else { return false }
                     return !self.isSafelisted(c) && c.activationPolicy == .regular
                 } ?? false
-
                 if !currentIsNonSafelisted {
-                    self.rebuildMaskCache()
+                    // Only build holes for the current frontmost safelisted app.
+                    // Other safelisted apps on other screens are intentionally hidden.
+                    self.rebuildMaskCache(for: current)
                 }
                 self.applyMasks(frontmostApp: current)
-                self.fadeOverlayAlpha(to: 1, duration: 0.18, only: activeDisplayID)
                 self.pendingActivationWork = nil
             }
             pendingActivationWork = work
@@ -610,8 +638,6 @@ class PanicModeManager: ObservableObject {
         pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
-        NSApp.presentationOptions = []
-        NSApp.setActivationPolicy(.accessory)
         restoreVigilWindows()
         dismissAllOverlays()
         unhideStageManager()
@@ -625,8 +651,6 @@ class PanicModeManager: ObservableObject {
         pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
-        NSApp.presentationOptions = []
-        NSApp.setActivationPolicy(.accessory)
         restoreVigilWindows()
         dismissAllOverlays()
         isActive = false

@@ -26,6 +26,8 @@ Blur everything instantly with one keystroke — only your trusted apps stay vis
 - Single hotkey (default: `⌘+Shift+L`) blurs all screens immediately and hides non-safelisted apps
 - **Safelist model**: apps you trust (Terminal, IDE, browsers, etc.) remain visible and interactive above the blur; everything else vanishes
 - **Fullscreen & Chromium support**: safelisted apps remain visible whether they are in a normal window, fullscreen Space, or are Chromium-based (Chrome, Edge, Brave, Arc)
+- **Audio mute** *(v0.3.3)*: system audio is silenced on panic and restored to its prior state on release
+- **Clipboard clear** *(v0.3.3)*: anything in the clipboard is wiped on panic — prevents bystanders from pasting copied passwords
 - Release with Touch ID for added security
 
 ### 📸 **Intruder Capture**
@@ -270,9 +272,7 @@ A: Yes. Optimized for M1/M2/M3/M4 Macs.
 
 ## Known Issues
 
-| Issue | Status | Workaround |
-|---|---|---|
-| **Panic Mode — secondary monitor not covered when connected mid-panic** | Open — planned fix in v0.3.1 | Overlays are created once at panic start. Re-trigger Panic Mode (`⌘+Shift+L` twice) after connecting the display. |
+No known issues.
 
 ---
 
@@ -333,7 +333,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 ### ✅ v0.2.1
 - Fix: eliminated overlay flash when switching to a safelisted app during Panic Mode — overlay alpha resets instantly on activation, mask rebuilds after a 70 ms settling window, then fades back in over 180 ms
 
-### ✅ v0.3.0 (Current)
+### ✅ v0.3.0
 - Shoulder Surfing Detection — continuous face detection via Vision + AVFoundation; triggers Panic Mode automatically when 2+ faces are detected for a configurable duration
 - Sensitivity slider and live face count in Settings → Shoulder Surfing tab
 - Auto-release: camera stays running during Panic Mode; releases without Touch ID after the threat clears for a set delay (3–30 s)
@@ -341,11 +341,25 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 - Camera API declared in PrivacyInfo.xcprivacy
 - Notarized release — no Gatekeeper warning
 
-### 🔜 v0.3.1 (Planned)
-- Fix: blur overlay for secondary monitors connected after Panic Mode is already active
+### ✅ v0.3.1
+- iCloud Key-Value Storage entitlement enabled
+
+### ✅ v0.3.2
+- Fix: crash on launch when iCloud sync contained duplicate lock history UUIDs
+
+### ✅ v0.3.3
+- Panic Mode now mutes system audio on trigger and restores the prior mute state on release (toggleable in Settings → Panic Mode)
+- Panic Mode now clears the clipboard on trigger — prevents bystanders from pasting copied passwords (toggleable in Settings → Panic Mode)
+
+### ✅ v0.3.4 (Current)
+- Fix: multi-display overlay — external monitors now blur correctly on macOS Sequoia
+- Fix: blur-to-hole flash eliminated — safelisted apps are always visible through holes during Panic Mode; switching to them is instantaneous with no full-blur frame
+- Fix: mask hole coordinates corrected for setups where the primary display and focused display have different heights (wrong `NSScreen.main` height was used for CG→AppKit y-flip)
+- Fix: window bounds now sourced exclusively from `CGWindowList` — AX was returning inner content views for Chromium/Electron apps, producing undersized holes
+- Performance: GPU blur pipeline pre-warmed at launch; per-app `CALayer` mask rebuilt on-demand via `CGWindowList` only (~1–3 ms); 250ms loop skips no-op ticks using a rect-signature change check
 
 ### 💡 Future
-- Custom app modes (office, café, etc.)
+- Custom app modes / profiles (office, café, travel)
 - Multiple paired Bluetooth devices (iPhone + Apple Watch)
 
 ---

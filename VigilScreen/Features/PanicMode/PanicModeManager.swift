@@ -45,6 +45,12 @@ class PanicModeManager: ObservableObject {
     // if applied every tick.
     private var lastAppliedSignature: [CGDirectDisplayID: String] = [:]
 
+    // CGEvent tap that intercepts left-mouse-down BEFORE macOS processes it.
+    // Used to pre-apply the safelisted hole so there is zero full-blur flash when
+    // the user clicks a safelisted app — by the time the activation notification
+    // fires the mask is already correct.
+    private var clickEventTap: CFMachPort?
+
     // Vigil Screen's own windows (settings, popover) are raised above the overlay during panic
     // so the user can still interact with them.
     private let panicVigilLevel = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
@@ -129,7 +135,6 @@ class PanicModeManager: ObservableObject {
     private func dismissAllOverlays() {
         overlayWindows.values.forEach {
             $0.contentView?.layer?.mask = nil
-            ($0.contentView?.subviews.first as? NSVisualEffectView)?.maskImage = nil
             $0.level = .screenSaver
             $0.alphaValue = 0
             $0.orderOut(nil)
@@ -327,34 +332,29 @@ class PanicModeManager: ObservableObject {
         return NSImage(cgImage: cg, size: overlaySize)
     }
 
-    /// Rebuilds the cached safelist mask for `app` only (one entry per screen).
-    /// Passing nil clears the cache — used when no safelisted app is frontmost.
-    /// Expensive — do not call on the hot path of an app-activation notification.
-    private func rebuildMaskCache(for app: NSRunningApplication?) {
-        guard let app, isSafelisted(app) else {
-            cachedSafelistMasks.removeAll()
-            return
-        }
+    /// Rebuilds holes for ALL visible windowed safelisted apps across every screen.
+    /// Holes are always shown regardless of which app is frontmost — this eliminates
+    /// the blur→hole flash because safelisted content is never fully covered.
+    private func rebuildMaskCache() {
         var new: [CGDirectDisplayID: NSImage] = [:]
         for screen in NSScreen.screens {
-            let safeRects = safelistedWindowRects(for: screen, onlyApp: app)
+            let safeRects = safelistedWindowRects(for: screen, onlyApp: nil)
             guard !safeRects.isEmpty else { continue }
             new[screen.displayID] = makeMaskImage(for: screen, safeRects: safeRects)
         }
         cachedSafelistMasks = new
     }
 
-    /// Periodic refresh used by the 250 ms loop. Queries window rects for `app`,
-    /// computes a cheap signature per display, and only rebuilds/applies if the
-    /// signature changed since the last apply. Skipping no-op updates avoids the
-    /// implicit NSVisualEffectView.maskImage cross-fade shimmer.
-    private func refreshMaskIfChanged(for app: NSRunningApplication) {
+    /// Periodic refresh: queries ALL safelisted apps, builds a signature per display,
+    /// and only rebuilds + applies when window positions actually changed.
+    /// Skipping no-op ticks avoids unnecessary CALayer repaints.
+    private func refreshMaskIfChanged() {
         var newSigs: [CGDirectDisplayID: String] = [:]
         var newMasks: [CGDirectDisplayID: NSImage] = [:]
         var anyChanged = false
         for screen in NSScreen.screens {
             let displayID = screen.displayID
-            let safeRects = safelistedWindowRects(for: screen, onlyApp: app)
+            let safeRects = safelistedWindowRects(for: screen, onlyApp: nil)
             let sig = safeRects
                 .map { "\(Int($0.minX)),\(Int($0.minY)),\(Int($0.width)),\(Int($0.height))" }
                 .joined(separator: "|")
@@ -367,50 +367,35 @@ class PanicModeManager: ObservableObject {
         guard anyChanged else { return }
         cachedSafelistMasks = newMasks
         lastAppliedSignature = newSigs
-        applyMasks(frontmostApp: app)
+        applyMasks()
     }
 
-    /// Applies the right mask to each overlay based on what's frontmost, using only
-    /// the cached mask images. Runs in constant time — safe for activation callbacks.
-    /// If the frontmost app is non-safelisted, removes any holes (full dark coverage) —
-    /// preventing safelisted holes from revealing content of overlapping non-safelisted apps.
-    ///
-    /// Pass `frontmostApp` directly from a `didActivate` notification when available —
-    /// `NSWorkspace.shared.frontmostApplication` can briefly lag the notification.
-    private func applyMasks(frontmostApp: NSRunningApplication? = nil) {
-        let resolved = frontmostApp ?? NSWorkspace.shared.frontmostApplication
-        let frontmostIsNonSafelisted = resolved.map { app -> Bool in
-            guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return false }
-            return !isSafelisted(app) && app.activationPolicy == .regular
-        } ?? false
-
+    /// Applies cached safelisted-app holes to every overlay. Holes are always shown
+    /// regardless of which app is frontmost — removing the frontmostIsNonSafelisted gate
+    /// eliminates the blur→hole flash that occurred when switching to a safelisted app.
+    private func applyMasks() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for (displayID, win) in overlayWindows {
-            guard let cover = win.contentView, let contentLayer = cover.layer else { continue }
-            let blur = cover.subviews.first as? NSVisualEffectView
-            let holesMask = frontmostIsNonSafelisted ? nil : cachedSafelistMasks[displayID]
-            if let holesMask,
+            guard let contentLayer = win.contentView?.layer else { continue }
+            if let holesMask = cachedSafelistMasks[displayID],
                let cgImg = holesMask.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-                // Mask the dark cover layer so safelisted windows show through.
+                // contentLayer.mask propagates to ALL sublayers including NSVisualEffectView.
                 let maskLayer = contentLayer.mask ?? CALayer()
                 maskLayer.contents = cgImg
                 maskLayer.frame = CGRect(origin: .zero, size: contentLayer.bounds.size)
                 contentLayer.mask = maskLayer
-                // Mask the blur layer the same way so the blur also has holes.
-                blur?.maskImage = holesMask
             } else {
-                contentLayer.mask = nil   // full coverage, no holes
-                blur?.maskImage = nil
+                contentLayer.mask = nil
             }
             contentLayer.displayIfNeeded()
         }
         CATransaction.commit()
     }
 
-    /// Refreshes cache then applies. Holes are built for the current frontmost safelisted app only.
+    /// Rebuilds holes for all safelisted apps then applies.
     private func updateOverlayMasks() {
-        rebuildMaskCache(for: NSWorkspace.shared.frontmostApplication)
+        rebuildMaskCache()
         applyMasks()
     }
 
@@ -486,6 +471,7 @@ class PanicModeManager: ObservableObject {
         }
 
         startMonitoringSpaceSwitches()
+        startClickMonitoring()
 
         // Keep overlays at the top every 250 ms. Rebuild the mask for the current
         // frontmost safelisted app, but ONLY apply it if the window rects actually
@@ -501,10 +487,7 @@ class PanicModeManager: ObservableObject {
                 await MainActor.run { [weak self] in
                     guard let self, self.isActive, !self.isAuthenticating else { return }
                     self.overlayWindows.values.forEach { $0.orderFrontRegardless() }
-                    if let frontmost = NSWorkspace.shared.frontmostApplication,
-                       self.isSafelisted(frontmost) {
-                        self.refreshMaskIfChanged(for: frontmost)
-                    }
+                    self.refreshMaskIfChanged()
                 }
                 try? await Task.sleep(nanoseconds: 250_000_000)   // 250 ms
             }
@@ -542,8 +525,9 @@ class PanicModeManager: ObservableObject {
     private func startMonitoringSpaceSwitches() {
         let center = NSWorkspace.shared.notificationCenter
 
-        // On window switch, immediately update the mask: opens a hole for safelisted apps,
-        // keeps the overlay covering non-safelisted apps — no waiting for the 250 ms loop.
+        // On window switch, close stale holes synchronously before opening a new
+        // safelisted hole after WindowServer has settled. This avoids one-frame
+        // flashes where the previous app's transparent mask reveals the wrong content.
         //
         // No `.receive(on: DispatchQueue.main)`: NSWorkspace notifications are already
         // posted on the main thread, and adding the hop queues our handler for the NEXT
@@ -567,6 +551,71 @@ class PanicModeManager: ObservableObject {
         app.bundleIdentifier.map { safelist.bundleIDs.contains($0) } ?? false
     }
 
+    // MARK: - Pre-emptive click tap
+
+    private func startClickMonitoring() {
+        guard clickEventTap == nil else { return }
+        let mask = CGEventMask(1 << CGEventType.leftMouseDown.rawValue)
+        let ptr = Unmanaged.passUnretained(self).toOpaque()
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: mask,
+            callback: { _, _, event, refcon -> Unmanaged<CGEvent>? in
+                // Tap is added to the main run loop, so this runs on the main thread.
+                if let refcon {
+                    let mgr = Unmanaged<PanicModeManager>.fromOpaque(refcon).takeUnretainedValue()
+                    MainActor.assumeIsolated { mgr.preemptiveHoleUpdate(at: event.location) }
+                }
+                return Unmanaged.passRetained(event)
+            },
+            userInfo: ptr
+        ) else { return }
+        let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        clickEventTap = tap
+    }
+
+    private func stopClickMonitoring() {
+        if let tap = clickEventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            clickEventTap = nil
+        }
+    }
+
+    /// Hit-tests `cgPoint` (CG top-left coordinates) against on-screen windows.
+    /// If the topmost non-overlay window belongs to a safelisted app, immediately
+    /// rebuilds and applies its hole mask — BEFORE macOS activates the window.
+    /// This eliminates the one-frame full-blur flash that notification-based updates
+    /// cannot avoid.
+    private func preemptiveHoleUpdate(at cgPoint: CGPoint) {
+        guard isActive, !isAuthenticating else { return }
+        let overlayNums = Set(overlayWindows.values.map { $0.windowNumber })
+        let windowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+
+        for info in windowList {
+            // Skip our own overlay windows — they have ignoresMouseEvents = true so
+            // clicks pass through; they'd always be the topmost hit otherwise.
+            if let num = info[kCGWindowNumber as String] as? Int,
+               overlayNums.contains(num) { continue }
+            guard let boundsNS = info[kCGWindowBounds as String] as? NSDictionary,
+                  let cgBounds = CGRect(dictionaryRepresentation: boundsNS as CFDictionary),
+                  cgBounds.width > 1, cgBounds.height > 10,
+                  cgBounds.contains(cgPoint) else { continue }
+            guard info[kCGWindowOwnerPID as String] is Int else { break }
+            // Whether the clicked window is safelisted or not, rebuild all holes
+            // so the mask is current at the moment the window activates.
+            rebuildMaskCache()
+            lastAppliedSignature.removeAll()
+            applyMasks()
+            break
+        }
+    }
+
     private func updateBlurOverlay(for app: NSRunningApplication) {
         guard isActive, !isAuthenticating else { return }
         guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
@@ -576,43 +625,34 @@ class PanicModeManager: ObservableObject {
         pendingActivationWork?.cancel()
         pendingActivationWork = nil
 
-        if !isSafelisted(app) && app.activationPolicy == .regular {
-            // Non-safelisted: apply full blur synchronously. Nothing to settle,
-            // so no delay needed — the user never sees an un-blurred frame.
-            setOverlayAlphaInstant(1, only: nil)  // all screens
-            overlayWindows.values.forEach { $0.orderFrontRegardless() }
-            applyMasks(frontmostApp: app)
-        } else {
-            // Safelisted: rebuild the cache for the new frontmost app first, then apply.
-            // Without this immediate rebuild, applyMasks uses the previous app's stale
-            // cached holes — producing a visible "flash" where the new app gets briefly
-            // covered (or full-blurred if the cache was empty) until the 70 ms delayed
-            // rebuild below corrects it. CGWindowList returns the new app's window
-            // positions reliably the moment it activates, so we don't need to wait.
-            rebuildMaskCache(for: app)
-            // Invalidate the loop's "unchanged" signature so its next tick re-evaluates
-            // from scratch against the new frontmost app.
-            lastAppliedSignature.removeAll()
-            applyMasks(frontmostApp: app)
+        overlayWindows.values.forEach { $0.orderFrontRegardless() }
+        setOverlayAlphaInstant(1, only: nil)
 
-            let work = DispatchWorkItem { [weak self] in
+        // Rebuild holes for ALL safelisted apps and apply immediately.
+        // Safelisted holes are always visible regardless of what's frontmost, so
+        // there is no blur→hole flash on any transition.
+        rebuildMaskCache()
+        lastAppliedSignature.removeAll()
+        applyMasks()
+
+        // Two refinement passes for apps that reflow their windows after activation.
+        let firstPass = DispatchWorkItem { [weak self] in
+            guard let self, self.isActive, !self.isAuthenticating else { return }
+            self.rebuildMaskCache()
+            self.applyMasks()
+
+            let secondPass = DispatchWorkItem { [weak self] in
                 guard let self, self.isActive, !self.isAuthenticating else { return }
-                let current = NSWorkspace.shared.frontmostApplication
-                let currentIsNonSafelisted = current.map { c -> Bool in
-                    guard c.bundleIdentifier != Bundle.main.bundleIdentifier else { return false }
-                    return !self.isSafelisted(c) && c.activationPolicy == .regular
-                } ?? false
-                if !currentIsNonSafelisted {
-                    // Only build holes for the current frontmost safelisted app.
-                    // Other safelisted apps on other screens are intentionally hidden.
-                    self.rebuildMaskCache(for: current)
-                }
-                self.applyMasks(frontmostApp: current)
+                self.rebuildMaskCache()
+                self.applyMasks()
                 self.pendingActivationWork = nil
             }
-            pendingActivationWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.07, execute: work)
+            self.pendingActivationWork = secondPass
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.22, execute: secondPass)
         }
+
+        pendingActivationWork = firstPass
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: firstPass)
     }
 
     /// Smoothly fades the overlay alpha over `duration` seconds. Uses the window
@@ -701,6 +741,7 @@ class PanicModeManager: ObservableObject {
         pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
+        stopClickMonitoring()
         restoreVigilWindows()
         dismissAllOverlays()
         unhideStageManager()
@@ -714,6 +755,7 @@ class PanicModeManager: ObservableObject {
         pendingActivationWork = nil
         isAuthenticating = false
         panicCancellables.removeAll()
+        stopClickMonitoring()
         restoreVigilWindows()
         dismissAllOverlays()
         isActive = false

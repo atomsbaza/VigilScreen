@@ -2,165 +2,83 @@
 description: Notarize, package, upload, and update Homebrew cask for a new Vigil Screen release
 ---
 
-You are running the **Vigil Screen release flow**. The user has invoked `/release` and (optionally) provided a target version as an argument: `$ARGUMENTS`.
+You are the **Vigil Screen release orchestrator**. You coordinate two sub-agents (`release-preflight` and `release-publish`) and handle the two human pause points. Be terse — one line per step result.
 
-## Your job
+## Constants
 
-Walk the user through cutting a new GitHub release of Vigil Screen and bumping the Homebrew cask. The release artifact must be a notarized, stapled `.dmg` with a real working `.app` inside it. **Always verify, never assume.**
+- **Repo:** `atomsbaza/VigilScreen`
+- **Cask repo:** `atomsbaza/homebrew-tap`
+- **Bundle ID:** `com.pisit.koolplukpol.VigilScreen`
+- **Team ID:** `VPTPA7XM79`
+- **Default export path:** `~/Desktop/VigilScreen-export/`
 
-## Inputs
-
-- **Version** — from `$ARGUMENTS` (e.g. `0.3.1`). If empty or invalid, ask the user.
-- **Working tree** — must be clean on `main` (or whatever branch the user wants to ship). Run `git status --short` first; if dirty, stop and report.
-- **Repo** — `atomsbaza/VigilScreen` on GitHub
-- **Cask repo** — `atomsbaza/homebrew-tap` on GitHub
-- **Bundle ID** — `com.pisit.koolplukpol.VigilScreen`
-- **Team ID** — `VPTPA7XM79`
-
-## Steps
-
-Execute these in order. Stop and ask the user before any destructive or public action (re-uploading existing release assets, deleting assets, force pushes). Use the read-only verifications liberally — they're cheap and they're already on the project allowlist.
-
-### 1. Pre-flight
-
-- `git status --short` — must be clean
-- `git log -1 --format='%h %s'` — show the user the commit they're about to ship
-- Read the latest `MARKETING_VERSION` from `VigilScreen.xcodeproj/project.pbxproj` and confirm it matches `$ARGUMENTS`. If they differ, ask the user whether they bumped the project version yet.
-- Confirm `gh auth status` is logged in.
-
-### 2. Archive + notarize via Xcode (USER STEP — you cannot do this)
-
-Tell the user to:
-
-1. Open `VigilScreen.xcodeproj` in Xcode.
-2. Top menu → **Product** → **Archive**.
-3. In Organizer: **Distribute App** → **Direct Distribution** → **Distribute** → wait for "Ready to distribute" (≈1–10 minutes).
-4. Click **Export App…**, save to `~/Desktop/VigilScreen-export/`.
-
-When they tell you the export is done, continue.
-
-### 3. Verify the exported `.app`
+## Step 1 — Pre-flight (run automatically)
 
 ```bash
-APP="$HOME/Desktop/VigilScreen-export/Vigil Screen.app"
-xcrun stapler validate "$APP"
-spctl -a -vvv -t install "$APP"
-codesign --verify --deep --strict --verbose=2 "$APP"
+git status --short
+git log -1 --format='%h %s'
+grep -m1 'MARKETING_VERSION' VigilScreen.xcodeproj/project.pbxproj
+gh auth status
 ```
 
-All three must succeed. Stop if any of:
-- `stapler validate` doesn't say "The validate action worked!"
-- `spctl` doesn't show `source=Notarized Developer ID`
-- `codesign --verify` reports anything other than `valid on disk` and `satisfies its Designated Requirement`
+- If `git status --short` shows any tracked changes → stop, report, ask user to commit or stash
+- Untracked-only files are fine
+- Read `MARKETING_VERSION` from `project.pbxproj`. If `$ARGUMENTS` was provided, confirm it matches. If they differ, ask the user which version to use.
+- If `gh auth status` fails → stop, tell user to run `gh auth login`
+- Check tag absent: `gh release view "v${VERSION}" --repo atomsbaza/VigilScreen 2>&1` — if release already exists, stop and report
 
-### 4. Package the DMG
-
-```bash
-cd ~/Desktop/VigilScreen-export
-rm -rf dmg-staging "Vigil Screen.dmg"
-mkdir dmg-staging
-cp -R "Vigil Screen.app" dmg-staging/
-( cd dmg-staging && ln -s /Applications " " )
-hdiutil create -volname "Vigil Screen" -srcfolder dmg-staging -ov -format UDZO -fs HFS+ "Vigil Screen.dmg"
-rm -rf dmg-staging
-hdiutil verify "Vigil Screen.dmg"
+Show result:
+```
+✅ Pre-flight passed — shipping v{version} from commit {hash}
 ```
 
-DMG verification must pass.
+## Step 2 — Xcode export (USER STEP)
 
-### 5. Rename + verify the DMG
+Tell the user:
 
-```bash
-VERSION="$ARGUMENTS"  # the version the user passed in
-mv "Vigil Screen.dmg" "VigilScreen-${VERSION}.dmg"
-ls -lh "VigilScreen-${VERSION}.dmg"
-shasum -a 256 "VigilScreen-${VERSION}.dmg"
+> Xcode export needed. Please:
+> 1. Open `VigilScreen.xcodeproj` in Xcode
+> 2. **Product → Archive**
+> 3. Organizer → **Distribute App → Direct Distribution → Distribute** (≈1–10 min)
+> 4. **Export App…** → save to `~/Desktop/VigilScreen-export/`
+>
+> Reply with "done" (or a custom export path) when finished.
+
+Wait for the user's reply. Extract export path from their message if they provide one, otherwise use the default.
+
+## Step 3 — Spawn release-preflight
+
+Spawn the `release-preflight` sub-agent with:
+- `version` = the confirmed version
+- `export_path` = path from step 2
+
+Wait for it to complete. If it fails, stop and surface the error. Do not continue to publish.
+
+On success, read `/tmp/vigil-release-state.json` and show:
+```
+✅ DMG ready — {size} — SHA256: {sha256}
 ```
 
-Save the SHA256 — you'll need it in step 7.
+## Step 4 — Publish confirmation (USER STEP)
 
-### 6. Upload to GitHub Release (PUBLIC ACTION — confirm before running)
+Ask:
+> Ready to publish **v{version}** to GitHub and Homebrew. This will:
+> - Create a public GitHub release at `https://github.com/atomsbaza/VigilScreen/releases/tag/v{version}`
+> - Upload `VigilScreen-{version}.dmg` ({size})
+> - Push a cask update to `atomsbaza/homebrew-tap`
+>
+> Proceed?
 
-If the release tag exists, upload as a new asset; if not, ask the user whether to create the tag.
+Wait for explicit confirmation. If the user says no, stop cleanly.
 
-```bash
-gh release upload "v${VERSION}" "VigilScreen-${VERSION}.dmg" --repo atomsbaza/VigilScreen
-# or, for a brand-new release:
-# gh release create "v${VERSION}" "VigilScreen-${VERSION}.dmg" --repo atomsbaza/VigilScreen --title "v${VERSION} — Vigil Screen" --generate-notes
-```
+## Step 5 — Spawn release-publish
 
-After upload, verify:
+Spawn the `release-publish` sub-agent. It will run automatically through GitHub release creation, then pause again before pushing the cask — that's the sub-agent's own confirmation gate, handled internally.
 
-```bash
-gh release view "v${VERSION}" --repo atomsbaza/VigilScreen --json assets --jq '.assets[] | {name, size}'
-```
-
-### 7. Update the Homebrew cask (PUBLIC ACTION — confirm before pushing)
-
-Clone the tap (parallel to the project, NOT inside it):
-
-```bash
-gh repo clone atomsbaza/homebrew-tap ~/Work/homebrew-tap
-```
-
-Edit `~/Work/homebrew-tap/Casks/vigil-screen.rb`:
-
-- Bump `version` to `$ARGUMENTS`
-- Replace `sha256` with the value from step 5
-
-Then:
-
-```bash
-cd ~/Work/homebrew-tap
-brew style ./Casks/vigil-screen.rb     # must produce zero offenses
-git add Casks/vigil-screen.rb
-git commit -m "vigil-screen: ${VERSION}"
-git push
-```
-
-Optionally smoke-test the install:
-
-```bash
-brew uninstall --cask vigil-screen 2>/dev/null
-brew untap atomsbaza/tap 2>/dev/null
-brew tap atomsbaza/tap
-brew install --cask atomsbaza/tap/vigil-screen
-xcrun stapler validate "/Applications/Vigil Screen.app"
-```
-
-### 8. Cleanup
-
-Ask the user before deleting anything. Suggested:
-
-```bash
-rm -rf ~/Work/homebrew-tap            # local tap clone
-rm -rf ~/Desktop/VigilScreen-export   # local app + dmg
-```
-
-### 9. Summary
-
-Print a final summary of:
-
-- Tag name and release URL: `https://github.com/atomsbaza/VigilScreen/releases/tag/v${VERSION}`
-- DMG SHA256
-- Cask commit URL
-- One-line install command: `brew install --cask atomsbaza/tap/vigil-screen` (or `brew upgrade --cask vigil-screen` for existing users)
-- Reminder to test on a second machine if possible
-
-## Things to refuse / flag
-
-- If notarization fails, **stop**. Don't try to upload an unnotarized DMG. Ask the user to debug via Xcode → Integrate → Cloud or App Store Connect → Notarization log.
-- If `codesign --verify` fails on the `.app`, **stop**. Notarization may have stripped a required entitlement.
-- If `gh release upload --clobber` is needed (replacing an existing artifact), **always** ask the user explicitly before doing so — they're overwriting a public artifact.
-- If `brew style` reports offenses, fix them locally and re-run; don't push a failing cask.
-- If the user has uncommitted changes to the project at step 1, refuse to continue until they handle them. Don't auto-stash or auto-discard.
-
-## Things you can do without asking
-
-- Read-only verifications (`spctl`, `stapler validate`, `hdiutil verify`, `codesign -d`, etc.) — these are on the project allowlist
-- Local DMG packaging (in user's Desktop folder)
-- Reading `gh release view`, `gh repo view`, etc.
+Wait for it to complete and surface its final summary to the user.
 
 ## Output style
 
-Be terse. After each step, give one line: ✅ done / ❌ failed (reason) / ⏸ waiting on user. Don't narrate every command — just run them and surface the result. The user will read the diff/output themselves if interested.
+- One line per step result: `✅ done` / `❌ failed — {reason}` / `⏸ waiting on user`
+- No narration of commands being run
+- Surface errors verbatim so the user can act on them
